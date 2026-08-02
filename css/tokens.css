@@ -1,0 +1,53 @@
+/* Kitchen & Home By Noor — design tokens: color, type, spacing, radius.
+   Split out of style.css (Phase 1 CSS reorg) so every other file can rely
+   on these variables without re-declaring them. Load this file FIRST. */
+
+/* Kitchen & Home By Noor — base styles: tokens, layout, components.
+   Responsive overrides live in responsive.css, keyframes in animations.css. */
+
+/* ============ TOKENS ============ */
+:root{
+  --cream:#F7F2E9;
+  --cream-deep:#EFE6D3;
+  --card:#FFFDF8;
+  --ink:#2B2621;
+  --ink-soft:#6B645C;
+  --ink-faint:#A39C91;
+  --terracotta:#C1502E;
+  --terracotta-deep:#9C3D22;
+  --terracotta-soft:rgba(193,80,46,0.08);
+  --line:rgba(43,38,33,0.12);
+  --line-terracotta:rgba(193,80,46,0.3);
+  --wa:#25D366;
+  --wa-deep:#128C4A;
+  --wa-soft:rgba(37,211,102,0.1);
+  --danger:#C0392B;
+  --success:#3F7A4C;
+
+  --f-display:'Playfair Display', serif;
+  --f-body:'Work Sans', sans-serif;
+
+  --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px; --s7:48px; --s8:64px; --s9:96px;
+  --r-sm:8px; --r-md:14px; --r-lg:26px; --r-full:999px;
+  --wrap:1160px;
+}
+
+/* ============ DARK THEME OVERRIDE (additive only — light theme above is untouched) ============ */
+html[data-theme="dark"]{
+  --cream:#1C1714;
+  --cream-deep:#252019;
+  --card:#282019;
+  --ink:#F2ECE2;
+  --ink-soft:#B0A69A;
+  --ink-faint:#736A5F;
+  --line:rgba(242,236,226,0.1);
+  --line-terracotta:rgba(212,175,55,0.4);
+  --terracotta:#E2734A;
+  --terracotta-deep:#C1502E;
+  --terracotta-soft:rgba(226,115,74,0.14);
+  --success:#7FC98C;
+}
+
+html[data-theme="dark"] .header{background:rgba(28,23,20,0.88);}
+
+html[data-theme="dark"] .logo-brand{background:linear-gradient(120deg,#C9A227,#F0D878 45%,#C9A227);-webkit-background-clip:text;background-clip:text;}

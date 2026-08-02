@@ -1,0 +1,7 @@
+/* Kitchen & Home By Noor — @keyframes definitions, referenced by name
+   from style.css (e.g. animation: pageIn .35s ease both). Link order
+   relative to the other two files doesn't matter for these. */
+
+@keyframes pageIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-8px);}}

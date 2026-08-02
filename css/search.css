@@ -1,0 +1,113 @@
+/* Kitchen & Home By Noor — search UI: the header's slide-down panel
+   (desktop: simple bar, as before) and the Phase 1 mobile overlay
+   (back button, clear button, recent searches). Depends on tokens.css. */
+
+/* ============ SEARCH BAR / OVERLAY ============ */
+.search-bar{max-height:0;overflow:hidden;transition:max-height .3s ease;border-bottom:1px solid var(--line);background:var(--card);}
+
+.search-bar.open{max-height:600px;}
+
+.search-bar-inner{display:flex;align-items:center;gap:12px;padding:16px 20px;}
+
+.search-bar-inner svg{width:18px;height:18px;stroke:var(--ink-faint);flex-shrink:0;}
+
+.search-bar input{flex:1;border:none;background:transparent;font-size:15px;outline:none;color:var(--ink);}
+
+.search-bar input::placeholder{color:var(--ink-faint);}
+
+.search-bar-icon{display:none;}
+
+.search-back-btn,.search-clear-btn{display:flex;align-items:center;justify-content:center;width:32px;height:32px;flex-shrink:0;color:var(--ink);}
+
+.search-back-btn svg,.search-clear-btn svg{width:20px;height:20px;stroke:currentColor;}
+
+/* Desktop: back/clear stay hidden and the plain magnifying-glass icon
+   shows instead, so the search bar looks exactly as it did before. */
+@media(min-width:860px){
+  .search-back-btn,.search-clear-btn{display:none;}
+  .search-bar-icon{display:block;}
+}
+
+/* ============ MOBILE: TRUE FULLSCREEN OVERLAY ============
+   On mobile, .search-bar becomes a fixed layer covering the entire
+   viewport — this is what "fullscreen search" means literally, and it
+   also guarantees the homepage (including the search-trigger-bar) is
+   physically covered the instant the overlay opens, rather than
+   relying only on the body.search-active hide rule in home.css to
+   catch every case. Belt and suspenders: both are in place. Opacity/
+   transform animate (not max-height), since a fixed, viewport-sized
+   element has no meaningful height to transition. */
+@media(max-width:859px){
+  .search-bar{
+    position:fixed;
+    inset:0;
+    z-index:400;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    display:flex;
+    flex-direction:column;
+    opacity:0;
+    visibility:hidden;
+    transform:translateY(10px);
+    transition:opacity .22s ease, transform .22s ease, visibility 0s linear .22s;
+  }
+  /* Matches .search-bar.open's specificity so this beats the base
+     max-height:600px rule (used for desktop's small dropdown) instead
+     of losing to it — and sets height explicitly rather than relying
+     on inset:0 alone to imply full viewport height. */
+  .search-bar,.search-bar.open{
+    max-height:none;
+    height:100vh;
+    height:100dvh;
+  }
+  .search-bar.open{
+    opacity:1;
+    visibility:visible;
+    transform:translateY(0);
+    transition:opacity .22s ease, transform .22s ease, visibility 0s linear 0s;
+  }
+  .search-bar-inner{padding-top:max(16px, env(safe-area-inset-top));}
+
+  /* The real cause of the "narrow, centered" search header: .container's
+     margin:0 auto (in base.css) is fine for normal block layout, but
+     .search-bar is a flex column on mobile now, and auto margins on a
+     flex item make it shrink-to-fit its content and center in the
+     leftover space instead of stretching — the classic "auto margins
+     override stretch" flex behavior. This affects every .container
+     directly inside the overlay (the header row, Recent Searches, and
+     the search results below), so it's fixed once, here, for all of
+     them, rather than three separate narrow fixes. Doesn't touch
+     .container anywhere else on the site — desktop and every other
+     page still get the normal centered-content behavor. */
+  .search-bar > .container{
+    max-width:none;
+    margin:0;
+    width:100%;
+  }
+}
+
+/* ============ RECENT SEARCHES (mobile only) ============ */
+#recentSearchesList{padding-bottom:var(--s3);}
+
+/* ============ SEARCH RESULTS (mobile only) ============
+   Shown in place of Recent Searches once there's a query — see
+   renderSearchResults() in js/search.js. Reuses .product-grid/
+   .product-card from products.css for the cards themselves; this only
+   adds this container's own top spacing under the search field. */
+#searchResultsList{padding-top:var(--s3);padding-bottom:var(--s3);}
+
+.recent-searches-heading{font-family:var(--f-body);font-weight:700;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-faint);padding:var(--s2) 0 var(--s2);}
+
+.recent-search-item{display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--line);}
+
+.recent-search-term{flex:1;display:flex;align-items:center;gap:12px;padding:13px 0;text-align:left;font-size:14.5px;color:var(--ink);}
+
+.recent-search-term svg{width:17px;height:17px;stroke:var(--ink-faint);flex-shrink:0;}
+
+.recent-search-remove{width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--ink-faint);flex-shrink:0;}
+
+.recent-search-remove svg{width:15px;height:15px;stroke:currentColor;}
+
+@media(min-width:860px){
+  #recentSearchesList{display:none;}
+}

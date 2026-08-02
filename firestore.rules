@@ -1,0 +1,123 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Deny-all default — safe starting point until real rules are written
+    // below. Nothing in the app writes to Firestore yet (see js/firestore.js),
+    // so this being restrictive costs nothing today.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Live since the Customer Profile step (Phase 2) — Profile Information,
+    // Addresses, and (soon) Notification Preferences all live in this one
+    // document per customer. See js/firestore.js's getUserProfile/
+    // saveUserProfile and js/auth.js's cache of it.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Live since the Firestore permissions fix (Phase 2) — the public
+    // storefront catalog (js/products.js's loadProducts()). Reads need no
+    // auth; writes are gated to the owner role in admins/{uid} — matching
+    // how js/auth.js's isAdmin() actually checks it, not a role field on
+    // users/{uid}, which this project never uses for that purpose.
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+
+      // Live since the Inventory Management step (Phase 3) — placing an
+      // order decrements each purchased item's stock (js/firestore.js's
+      // saveOrderWithStockCheck(), which does this and the order write
+      // together in one transaction, so stock can never go negative from
+      // a race between two simultaneous buyers). Deliberately narrow: a
+      // signed-in customer may change ONLY the stock field, and only
+      // downward — never price, name, category, image, or anything else,
+      // which still require the owner-role write above. This is additive
+      // to that rule, not a replacement for it.
+      allow update: if request.auth != null
+                    && resource.data.stock is number
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])
+                    && request.resource.data.stock is number
+                    && request.resource.data.stock >= 0
+                    && request.resource.data.stock < resource.data.stock;
+    }
+
+    // Live since the Category Management step (Phase 3) — the Admin
+    // Dashboard's Categories page (js/admin-categories.js) is the only
+    // place a category is created, edited, hidden, reordered, or
+    // deleted; the storefront (js/categories.js's loadCategories()) only
+    // ever reads. Same public-read / owner-role-write shape as
+    // products/{productId} above, and no customer-writable carve-out —
+    // unlike a product's stock field, nothing about a category is ever
+    // written by a signed-in customer.
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    // Live since the Feature Labels step (Phase 3) — the Admin
+    // Dashboard's Labels page (js/admin-labels.js) is the only place a
+    // label is created, renamed, enabled/disabled, or deleted (product
+    // documents themselves also change here and there, whenever a label
+    // is assigned/unassigned to/from a product — those writes are
+    // governed by the owner-role rule on products/{productId} above, the
+    // same as any other product edit, not by this rule). Same shape as
+    // categories/{categoryId} above.
+    match /labels/{labelId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+    }
+
+    // Live since the Firestore permissions fix (Phase 2) — every signed-in
+    // user reads only their own admin/staff record (js/firestore.js's
+    // getAdminRecord(), read on every sign-in via js/auth.js, and by
+    // admin/index.html's login gate) to check their own role. Nothing
+    // anywhere writes to this collection from the client — admin records
+    // are managed directly in the Firebase console — so no write rule is
+    // granted here.
+    match /admins/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Live since the Order History step (Phase 2) — customers placing an
+    // order (js/checkout.js) need no auth beyond what the app itself
+    // already requires at checkout. Reads/updates are split: a customer
+    // may read only their own orders (resource.data.userId matches their
+    // uid — this is what powers the live "My Orders" subscription in
+    // js/firestore.js's subscribeToUserOrders()), while active staff with
+    // an appropriate role in admins/{uid} can read or update any order.
+    // Matches js/auth.js's isWorker() (which also requires active===true
+    // plus one of these three roles) — kept in sync deliberately so the
+    // app-side check and this rule never drift apart on who counts as staff.
+    match /orders/{orderId} {
+      allow create: if true;
+      allow read: if request.auth != null
+                  && (
+                    resource.data.userId == request.auth.uid
+                    || (get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['owner','manager','staff'])
+                  );
+      allow update: if request.auth != null
+                    && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                    && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role in ['owner','manager','staff'];
+    }
+
+    // Live since the Persistent Cart step (Phase 2) — one document per
+    // customer at carts/{uid}, deliberately its own collection rather
+    // than a field on users/{uid} (see js/firestore.js's getUserCart/
+    // saveCartToFirestore/subscribeToUserCart and js/cart.js's sync
+    // lifecycle). Same ownership shape as users/{userId} above: a
+    // customer can only ever read or write their own cart, and nothing
+    // else — no staff role — needs to.
+    match /carts/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

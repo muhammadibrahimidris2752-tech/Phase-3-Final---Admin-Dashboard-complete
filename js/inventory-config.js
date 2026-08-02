@@ -1,0 +1,8 @@
+export const INVENTORY = {
+  LOW_STOCK_WARNING: 5,
+  OUT_OF_STOCK: 0,
+
+  ALLOW_BACKORDER: false,
+
+  DEFAULT_STOCK: 10
+};

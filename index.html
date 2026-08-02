@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kitchen & Home By Noor — Where Style Meets Everyday Living</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/header-nav.css">
+<link rel="stylesheet" href="css/search.css">
+<link rel="stylesheet" href="css/home.css">
+<link rel="stylesheet" href="css/products.css">
+<link rel="stylesheet" href="css/cart-checkout.css">
+<link rel="stylesheet" href="css/content-pages.css">
+<link rel="stylesheet" href="css/account-orders.css">
+<link rel="stylesheet" href="css/responsive.css">
+<link rel="stylesheet" href="css/animations.css">
+</head>
+<body>
+
+<header class="header" id="siteHeader">
+  <div class="container header-inner">
+    <div class="logo" onclick="showPage('catalog')"><span class="logo-brand">Kitchen &amp; Home</span><span class="logo-tag">BY NOOR</span></div>
+    <nav class="nav-links">
+      <button class="nav-link" data-nav="catalog" onclick="showPage('catalog')">Home</button>
+      <button class="nav-link" data-nav="about" onclick="showPage('about')">About</button>
+      <button class="nav-link" data-nav="faq" onclick="showPage('faq')">FAQ</button>
+      <button class="nav-link" data-nav="contact" onclick="showPage('contact')">Contact</button>
+      <button class="nav-link" data-nav="history" onclick="showPage('history')">Orders</button>
+    </nav>
+    <div class="header-actions">
+      <!-- Search/Account/Cart icons: desktop keeps all three exactly as before
+           (icon-btn-desktop-only reveals them again at the 860px breakpoint —
+           see header-nav.css). On mobile they're replaced by the inline search
+           bar on the homepage and the Account/Cart tabs in the bottom nav. -->
+      <button class="icon-btn icon-btn-desktop-only" aria-label="Search" onclick="toggleSearch()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      </button>
+      <button class="icon-btn" id="themeToggleBtn" aria-label="Toggle dark mode" onclick="toggleTheme()">
+        <svg id="themeIconSun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+      </button>
+      <button class="icon-btn icon-btn-desktop-only" id="accountBtn" aria-label="Account" onclick="handleAccountIconClick()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21a8 8 0 0 0-16 0"/>
+          <circle cx="12" cy="8" r="4"/>
+        </svg>
+      </button>
+      <button class="icon-btn icon-btn-desktop-only" aria-label="Cart" onclick="showPage('cart')">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="badge-count" id="cartBadge">0</span>
+      </button>
+      <button class="icon-btn hamburger-btn" id="hamburgerBtn" aria-label="Menu" onclick="toggleMobileNav()">
+        <svg id="hamburgerIconOpen" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        <svg id="hamburgerIconClose" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="search-bar" id="searchBar">
+    <div class="container search-bar-inner">
+      <button class="search-back-btn" aria-label="Close search" onclick="closeSearchOverlay()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <svg class="search-bar-icon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="searchInput" placeholder="Search products…" oninput="handleSearchInput()">
+      <button class="search-clear-btn" aria-label="Clear search" onclick="clearSearchInput()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="container" id="recentSearchesList"></div>
+    <div class="container" id="searchResultsList"></div>
+  </div>
+  <div class="mobile-nav-drawer" id="mobileNavDrawer">
+    <button class="mobile-nav-link" data-nav="catalog" onclick="showPage('catalog')">Home</button>
+    <button class="mobile-nav-link" data-nav="contact" onclick="showPage('contact')">Contact</button>
+    <button class="mobile-nav-link" data-nav="about" onclick="showPage('about')">About</button>
+    <button class="mobile-nav-link" data-nav="faq" onclick="showPage('faq')">FAQ</button>
+  </div>
+</header>
+
+<!-- ============ BOTTOM NAV (mobile only — see header-nav.css) ============ -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-nav-link" data-nav="catalog" onclick="showPage('catalog')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="bottom-nav-link" data-nav="account" onclick="showPage('account')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg>
+    <span>Account</span>
+  </button>
+  <button class="bottom-nav-link" data-nav="cart" onclick="showPage('cart')">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+    <span>Cart</span>
+    <span class="badge-count bottom-nav-badge" id="cartBadgeMobile">0</span>
+  </button>
+</nav>
+
+<!-- ============ CATALOG PAGE ============ -->
+<div class="page active" id="page-catalog">
+  <div class="container">
+
+    <!-- Mobile-only: tapping this opens the same search overlay as the
+         header's search icon (which stays for desktop) — see search.js.
+         This is a button styled to look like a search field, not a real
+         input, so there's only ever one real #searchInput to keep in sync. -->
+    <button class="search-trigger-bar" onclick="openSearchOverlay()">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      Search products…
+    </button>
+
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-rule"></span>PERSONAL SHOPPING • CURATED COLLECTION • ALWAYS AT YOUR SERVICE</div>
+          <h1 class="hero-title">Find Your Perfect Piece.<br><em>And we'll Take Care of Everything Else.</em></h1>
+          <p class="hero-sub">Explore our carefully curated collection and choose the pieces that match your style. From product guidance to delivery arrangements and after-sales support, our dedicated team is always at your service, ensuring every shopping experience is smooth, personal, and enjoyable.</p>
+          <button class="btn btn-primary" onclick="document.getElementById('catalogGridAnchor').scrollIntoView({behavior:'smooth'})">Explore the Collection</button>
+        </div>
+        <div class="hero-visual">
+          <div class="hero-dot" style="width:180px;height:180px;top:10%;left:5%;"></div>
+          <div class="hero-dot" style="width:90px;height:90px;bottom:5%;right:10%;background:rgba(43,38,33,0.05);"></div>
+          <svg class="tote-illustration" viewBox="0 0 200 200" fill="none" stroke="#2B2621" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M55 75 L60 45 a20 20 0 0 1 40 0 L105 75" stroke="#C1502E"/>
+            <rect x="40" y="75" width="80" height="90" rx="6"/>
+            <path d="M40 105 h80" stroke-dasharray="3 5" opacity=".5"/>
+            <circle cx="70" cy="120" r="2" fill="#2B2621" stroke="none"/>
+            <circle cx="90" cy="120" r="2" fill="#2B2621" stroke="none"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <div class="trust-strip">
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>Personal Shopping Assistance</div>
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Simple & Hassle-Free Ordering</div>
+      <div class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h3l3 3v5h-6"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>Delivery Tailored to Your Needs</div>
+    </div>
+
+    <section class="cat-tiles-section">
+      <div class="eyebrow"><span class="eyebrow-rule"></span>SHOP BY CATEGORY</div>
+      <h2 class="section-title" style="margin-bottom:16px;">Find what you're after</h2>
+      <div class="cat-tiles" id="catTiles"></div>
+    </section>
+
+    <!-- Mobile-only (see home.css). Reuses the existing `badge` field on
+         each product (New/Bestseller) — see renderFeaturedProducts() in
+         ui.js — so this needs no new data and stays in sync with whatever
+         catalog is loaded, sample or real. -->
+    <section class="featured-section" id="featuredSection">
+      <div class="section-heading-row">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-rule"></span>FEATURED PRODUCTS</div>
+          <h2 class="section-title">Loved by our customers</h2>
+        </div>
+        <button class="section-title-link" onclick="document.getElementById('catalogGridAnchor').scrollIntoView({behavior:'smooth'})">View all</button>
+      </div>
+      <div class="product-grid" id="featuredGrid"></div>
+    </section>
+
+    <div id="catalogGridAnchor"></div>
+    <div class="catalog-toolbar">
+      <div class="chip-row" id="chipRow"></div>
+      <select class="sort-select" id="sortSelect" onchange="handleSortChange()">
+        <option value="featured">Featured</option>
+        <option value="price-low">Price: Low to High</option>
+        <option value="price-high">Price: High to Low</option>
+      </select>
+    </div>
+
+    <div class="product-grid" id="productGrid"></div>
+  </div>
+</div>
+
+<!-- ============ MY ACCOUNT PAGE ============ -->
+<div class="page" id="page-account">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">My Account</h1>
+      </div>
+    </div>
+    <div id="accountContent" style="margin-bottom:60px;"></div>
+  </div>
+</div>
+
+<!-- ============ CART PAGE ============ -->
+<div class="page" id="page-cart">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">Your Bag</h1>
+      </div>
+    </div>
+
+    <div id="cartContent" style="margin-bottom:60px;"></div>
+  </div>
+</div>
+
+<!-- ============ ABOUT PAGE ============ -->
+<div class="page" id="page-about">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">About Us</h1>
+      </div>
+    </div>
+    <div class="content-page">
+      <p class="lede">At Kitchen & Home By Noor, we believe shopping should feel personal. Find your perfect piece from our curated collection, in an experience that's simple, enjoyable, and built on trust.</p>
+      <p>We carefully select quality bags, shoes, watches, and accessories that combine style, durability, and value. Every item in our collection is hand-picked to ensure you receive products we're proud to offer.</p>
+      <p>Our team is always at your service. Whether you need help choosing the perfect item, have questions about a product, want updates on your order, or need assistance after your purchase, we're here to support you every step of the way. Your satisfaction is our priority, and we're committed to giving you a smooth, friendly, and reliable shopping experience.</p>
+      <p>Every product we offer is genuine and carefully inspected before it reaches you. If you ever have any concerns, simply let us know—we'll do everything we can to make it right because at Kitchen & Home By Noor, every customer matters.</p>
+      <div class="about-stats">
+        <div class="stat"><div class="stat-num">100+</div><div class="stat-label">Stylish Pieces</div></div>
+        <div class="stat"><div class="stat-num">20+</div><div class="stat-label">Style Collections</div></div>
+        <div class="stat"><div class="stat-num">100%</div><div class="stat-label">Personal Assistance</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FAQ PAGE ============ -->
+<div class="page" id="page-faq">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">FAQs</h1>
+      </div>
+    </div>
+    <div class="faq-list" id="faqList"></div>
+  </div>
+</div>
+
+<!-- ============ CONTACT PAGE ============ -->
+<div class="page" id="page-contact">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">Contact Us</h1>
+      </div>
+    </div>
+    <div class="contact-grid">
+      <a href="#" id="contactWaBtn" target="_blank" rel="noopener" class="contact-card contact-wa">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z"/></svg>
+        <div class="contact-card-title">Chat on WhatsApp</div>
+        <div class="contact-card-sub">Fastest way to reach us</div>
+      </a>
+      <a href="tel:+2349030630374" class="contact-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z"/></svg>
+        <div class="contact-card-title">Call Us</div>
+        <div class="contact-card-sub">0903 063 0374</div>
+      </a>
+      <a href="#" id="contactEmailBtn" class="contact-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+        <div class="contact-card-title">Email</div>
+        <div class="contact-card-sub" id="contactEmailSub">Opens Gmail to message us</div>
+      </a>
+      <div class="contact-card" style="cursor:default;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        <div class="contact-card-title">Reply Hours</div>
+        <div class="contact-card-sub">Mon–Sat, 9am–8pm</div>
+      </div>
+    </div>
+    <div class="eyebrow"><span class="eyebrow-rule"></span>DELIVERY &amp; PAYMENT</div>
+    <div class="info-strip">
+      <div class="info-block">
+        <h3>Delivery</h3>
+        <p>We proudly deliver nationwide across Nigeria. Delivery timelines and fees are tailored to your location and confirmed by our team before your order is processed. Most deliveries within major cities arrive within 1–3 business days.</p>
+      </div>
+      <div class="info-block">
+        <h3>Payment</h3>
+        <p>We offer secure and convenient payment options, including bank transfer and cash on delivery where available. Payment details are provided once your order has been confirmed by our team.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ORDER HISTORY PAGE ============ -->
+<div class="page" id="page-history">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">My Orders</h1>
+      </div>
+    </div>
+    <div id="historyContent" style="margin-bottom:60px;"></div>
+  </div>
+</div>
+
+<!-- ============ SIGN IN PAGE (not linked from nav — reached via the account icon, My Account, or checkout's "Prefer email?" link) ============ -->
+<div class="page" id="page-signin">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">Sign In</h1>
+      </div>
+    </div>
+    <div id="signinContent" style="margin-bottom:60px;"></div>
+  </div>
+</div>
+
+<!-- ============ VERIFY ORDER PAGE (staff use only — not linked from nav, reached via #verify-order) ============ -->
+<div class="page" id="page-verify">
+  <div class="container">
+    <div class="page-head">
+      <div class="page-head-row">
+        <button class="back-btn" onclick="showPage('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <h1 class="page-title">Verify an Order</h1>
+      </div>
+    </div>
+    <div class="content-page" style="max-width:640px;">
+      <p class="lede">Staff use only. Re-enter what the customer says they ordered — the total and code below are calculated fresh from this device, so nothing changed in the customer's own browser can affect them.</p>
+      <div class="wa-note" style="margin-top:0;">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Compare the total and code here against the customer's WhatsApp message. If either is off, don't confirm at their stated price — ask them to resend the order from the site.
+      </div>
+      <div id="verifyPicker" style="display:flex;flex-direction:column;gap:8px;margin:var(--s5) 0;"></div>
+      <div class="summary-box" id="verifySummary"></div>
+      <div class="name-field">
+        <label for="verifyCodeInput">Code from customer's message (optional)</label>
+        <input type="text" id="verifyCodeInput" placeholder="e.g. A1B2C3" oninput="updateVerifyMatchResult()" style="text-transform:uppercase;">
+      </div>
+      <div id="verifyMatchResult"></div>
+      <button class="btn btn-outline btn-block" onclick="resetVerify()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <div style="display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="footer-link-btn" onclick="showPage('about')">About</button>
+      <button class="footer-link-btn" onclick="showPage('faq')">FAQ</button>
+      <button class="footer-link-btn" onclick="showPage('contact')">Contact</button>
+    </div>
+    <p>Kitchen & Home By Noor — Where Style Meets Everyday Living</p>
+  </div>
+</footer>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,78 @@
+/* Kitchen & Home By Noor — base layer: reset, base element styles,
+   .container, the .page/.page.active switcher, buttons, the shared
+   sub-page header (.page-head/.back-btn), and the toast component.
+   Depends on tokens.css. */
+
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+html{scroll-behavior:smooth;}
+
+body{
+  background:var(--cream);
+  color:var(--ink);
+  font-family:var(--f-body);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  line-height:1.5;
+}
+
+img,svg{display:block;max-width:100%;}
+
+button,input,select,textarea{font-family:inherit;color:inherit;}
+
+a{color:inherit;text-decoration:none;}
+
+ul{list-style:none;}
+
+button{cursor:pointer;border:none;background:none;}
+
+
+:focus-visible{outline:2px solid var(--terracotta);outline-offset:3px;border-radius:4px;}
+
+
+
+
+.container{max-width:var(--wrap);margin:0 auto;padding:0 20px;}
+
+
+/* ============ PAGES ============ */
+.page{display:none;}
+
+.page.active{display:block;animation:pageIn .35s ease both;}
+
+
+
+/* ============ BUTTONS ============ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:15px 28px;border-radius:var(--r-full);font-family:var(--f-body);font-weight:600;font-size:14.5px;letter-spacing:.1px;transition:transform .18s ease, box-shadow .18s ease, background .18s ease, border-color .18s ease;white-space:nowrap;}
+
+.btn-primary{background:var(--ink);color:var(--cream);}
+
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(43,38,33,0.25);}
+
+.btn-outline{background:transparent;border:1.5px solid var(--line);color:var(--ink);}
+
+.btn-outline:hover{border-color:var(--terracotta);color:var(--terracotta);}
+
+.btn-block{width:100%;}
+
+/* ============ PAGE HEAD (cart) ============ */
+.page-head{padding:var(--s6) 0 var(--s5);}
+
+.page-head-row{display:flex;align-items:center;gap:14px;}
+
+.back-btn{width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .2s;}
+
+.back-btn:hover{border-color:var(--line-terracotta);}
+
+.back-btn svg{width:17px;height:17px;stroke:var(--ink);}
+
+.page-title{font-family:var(--f-display);font-weight:600;font-size:26px;}
+
+/* ============ TOAST ============ */
+.toast-wrap{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:500;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;}
+
+.toast{background:var(--ink);color:var(--cream);padding:12px 20px;border-radius:var(--r-full);font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,0.25);animation:toastIn .3s ease both, toastOut .3s ease 2s both;white-space:nowrap;}
+
+.toast svg{width:15px;height:15px;stroke:var(--terracotta);stroke-width:3;}

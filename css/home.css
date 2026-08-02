@@ -1,0 +1,206 @@
+/* Kitchen & Home By Noor — homepage-specific sections: hero, trust strip,
+   category filter chips + sort toolbar, and the shop-by-category tiles.
+   Depends on tokens.css. */
+
+/* ============ MOBILE HERO REMOVAL (Phase 1) ============
+   Desktop keeps the full hero exactly as it was (revert below, at the
+   same 860px breakpoint used everywhere else for this). On mobile the
+   inline search bar leads instead, straight into categories/featured
+   products — see index.html and the search-trigger-bar rules below. */
+.hero{display:none;}
+
+@media(min-width:860px){
+  .hero{display:block;}
+}
+
+/* Button styled to look like the search field, opens the same overlay
+   as the header's search icon (which desktop uses instead of this). */
+.search-trigger-bar{display:flex;align-items:center;gap:10px;width:100%;background:var(--card);border:1.5px solid var(--line);border-radius:var(--r-full);padding:13px 18px;font-size:14.5px;color:var(--ink-faint);margin:var(--s5) 0;text-align:left;}
+
+.search-trigger-bar svg{width:18px;height:18px;stroke:var(--ink-faint);flex-shrink:0;}
+
+@media(min-width:860px){
+  .search-trigger-bar{display:none;}
+}
+
+/* While the mobile search overlay is open, the homepage's own browse
+   content (including the search-trigger-bar itself) must not be
+   visible — otherwise it reads as two search bars on screen at once.
+   openSearchOverlay()/closeSearchOverlay() in js/search.js already
+   toggle body.search-active; this is the rule that acts on it. */
+@media(max-width:859px){
+  body.search-active .search-trigger-bar,
+  body.search-active .trust-strip,
+  body.search-active .cat-tiles-section,
+  body.search-active .featured-section{
+    display:none;
+  }
+  body.search-active:not(.has-query) .catalog-toolbar,
+  body.search-active:not(.has-query) #productGrid{
+    display:none;
+  }
+}
+
+/* ============ HERO ============ */
+.hero{padding:var(--s7) 0 var(--s6);position:relative;overflow:hidden;}
+
+.hero-grid{display:grid;grid-template-columns:1fr;gap:var(--s6);align-items:center;}
+
+.eyebrow{font-size:12px;letter-spacing:1.5px;color:var(--terracotta);text-transform:uppercase;font-weight:600;display:flex;align-items:center;gap:10px;margin-bottom:var(--s4);}
+
+.eyebrow-rule{width:24px;height:1px;background:var(--terracotta);}
+
+.hero-title{font-family:var(--f-display);font-weight:600;font-size:clamp(34px,6.5vw,52px);line-height:1.08;letter-spacing:-.3px;margin-bottom:var(--s4);}
+
+.hero-title em{font-style:italic;color:var(--terracotta);font-weight:500;}
+
+.hero-sub{font-size:16px;color:var(--ink-soft);max-width:440px;line-height:1.65;margin-bottom:var(--s5);}
+
+.hero-visual{display:flex;align-items:center;justify-content:center;position:relative;height:220px;}
+
+.tote-illustration{width:180px;height:180px;}
+
+.hero-dot{position:absolute;border-radius:50%;background:var(--terracotta-soft);}
+
+
+
+/* ============ TRUST STRIP ============ */
+.trust-strip{display:flex;flex-wrap:wrap;gap:10px 22px;padding:var(--s5) 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:var(--s6);}
+
+.trust-item{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-soft);font-weight:500;}
+
+.trust-item svg{width:16px;height:16px;stroke:var(--terracotta);flex-shrink:0;}
+
+
+/* .section-title had no base rule before Phase 1 — it relied on a
+   one-off inline style and otherwise fell back to the browser's
+   default h2 look, missing the site's display typeface. Giving it a
+   real rule here fixes that for "Shop by Category" too, not just the
+   new Featured Products heading below. */
+.section-title{font-family:var(--f-display);font-weight:600;font-size:clamp(20px,3.2vw,26px);color:var(--ink);margin-bottom:16px;}
+
+/* ============ CHIPS & TOOLBAR ============ */
+.catalog-toolbar{display:flex;flex-direction:column;gap:14px;margin-bottom:var(--s5);}
+
+.chip-row{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+
+.chip-row::-webkit-scrollbar{display:none;}
+
+.chip{flex-shrink:0;padding:9px 17px;border-radius:var(--r-full);border:1.5px solid var(--line);color:var(--ink-soft);font-size:13.5px;font-weight:500;transition:.2s;background:var(--card);}
+
+.chip:hover{border-color:var(--line-terracotta);color:var(--ink);}
+
+.chip.active{background:var(--ink);border-color:var(--ink);color:var(--cream);font-weight:600;}
+
+.sort-select{background:var(--card);border:1.5px solid var(--line);color:var(--ink);padding:9px 14px;border-radius:var(--r-sm);font-size:13px;font-family:var(--f-body);align-self:flex-start;}
+
+/* ============ CATEGORY TILES ============ */
+/* ============ CATEGORY TILES (UPDATED) ============ */
+.cat-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.cat-tile {
+  aspect-ratio: 1.4/1;
+  border-radius: var(--r-lg);
+  position: relative; /* Crucial: Keeps the absolute image inside this box */
+  overflow: hidden; /* Clips the square image to your rounded corners */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end; /* Pushes the text to the bottom */
+  padding: 8px; /* Adds breathing room around the text */
+  text-align: center;
+  transition: transform .2s;
+  text-decoration: none;
+}
+
+.cat-tile:hover {
+  transform: translateY(-3px);
+}
+
+/* 1. Make the image act as a full background */
+.cat-tile-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 99%; /* Now covers the whole book! */
+  object-fit: cover;
+  z-index: 1; /* Pushes it to the back */
+}
+
+/* Category Management step: a category with no Image URL set yet (or
+   whose image URL fails to load — see the onerror swap in
+   renderCategoryTiles(), js/ui.js) falls back to this instead of a
+   broken image or a bundled placeholder file. Same z-index/position as
+   .cat-tile-image above so the dark gradient overlay (.cat-tile::after,
+   below) and the white tile text over it look identical either way. */
+.cat-tile-fallback {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--terracotta-soft);
+  color: var(--terracotta);
+  font-family: var(--f-display);
+  font-weight: 700;
+  font-size: 52px;
+}
+
+/* 2. Add a subtle shadow overlay so text is readable over bright images */
+.cat-tile::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60%; /* Shadows just the bottom portion */
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%);
+  z-index: 2; /* Sits above the image, below the text */
+}
+
+/* 3. Bring text to the front and make it white */
+.cat-tile-name,
+.cat-tile-count {
+  position: relative;
+  z-index: 3; /* Pulls text to the very front */
+  color: #FFFFFF; /* White text is best for overlays */
+  margin: 0; /* Resets old margins */
+}
+
+.cat-tile-name {
+  font-family: var(--f-display);
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.cat-tile-count {
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+/* ============ FEATURED PRODUCTS (mobile only, Phase 1) ============
+   Reuses .product-grid/.product-card from products.css for the cards
+   themselves — this file only adds the section's heading row. */
+.featured-section{margin:var(--s6) 0;}
+
+.section-heading-row{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;gap:var(--s3);}
+
+.section-heading-row .eyebrow{margin-bottom:6px;}
+
+.section-heading-row .section-title{margin-bottom:0;}
+
+.section-title-link{font-size:13px;font-weight:600;color:var(--terracotta);flex-shrink:0;padding-bottom:2px;}
+
+@media(min-width:860px){
+  .featured-section{display:none;}
+}

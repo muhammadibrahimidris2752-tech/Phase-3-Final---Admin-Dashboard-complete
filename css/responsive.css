@@ -1,0 +1,15 @@
+/* Kitchen & Home By Noor — responsive (@media) overrides.
+   Must be linked AFTER style.css so these correctly win the cascade
+   at their breakpoints — same effective order as before, just split out. */
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:0.001ms !important;animation-iteration-count:1 !important;transition-duration:0.001ms !important;scroll-behavior:auto !important;}
+}
+@media(min-width:860px){.nav-links{display:flex;}.hamburger-btn{display:none;}}
+@media(min-width:780px){.hero-grid{grid-template-columns:1.2fr 1fr;}.hero-visual{height:280px;}.tote-illustration{width:230px;height:230px;}}
+@media(min-width:680px){.catalog-toolbar{flex-direction:row;align-items:center;justify-content:space-between;}.sort-select{align-self:auto;}}
+@media(min-width:640px){.product-grid{grid-template-columns:repeat(3,1fr);}}
+@media(min-width:960px){.product-grid{grid-template-columns:repeat(4,1fr);}}
+@media(min-width:640px){.cat-tiles{grid-template-columns:repeat(4,1fr);}}
+@media(min-width:640px){.contact-grid{grid-template-columns:repeat(2,1fr);}}
+@media(min-width:640px){.info-strip{grid-template-columns:1fr 1fr;}}

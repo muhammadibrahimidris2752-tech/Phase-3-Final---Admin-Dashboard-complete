@@ -1,0 +1,61 @@
+/* Kitchen & Home By Noor — product card grid + the qty stepper control
+   (shared by the catalog grid and the cart page). Depends on tokens.css. */
+
+/* ============ PRODUCT CARDS ============ */
+.product-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:var(--s8);}
+
+.product-card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;transition:transform .2s, box-shadow .2s;position:relative;}
+
+.product-card:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(43,38,33,0.08);}
+
+/* Feature Labels step: a product can now carry any number of labels
+   (js/labels.js), so the single absolutely-positioned badge became a
+   wrapper (.product-badges, absolutely positioned once) around any
+   number of statically-flowing pills (.product-badge, no longer
+   positioned itself) stacked in a column — see productCardHTML() in
+   js/ui.js. Out of Stock still renders through this same wrapper as
+   its one pill, so its position/size are unchanged from before. */
+.product-badges{position:absolute;top:12px;left:12px;z-index:2;display:flex;flex-direction:column;align-items:flex-start;gap:5px;max-width:calc(100% - 24px);}
+
+.product-badge{background:var(--card);border:1px solid var(--line);color:var(--terracotta);font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:4px 10px;border-radius:var(--r-full);white-space:nowrap;}
+
+.product-visual{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;}
+
+.product-visual svg{width:44%;height:44%;stroke:var(--ink);opacity:.55;}
+
+.product-visual img{width:100%;height:100%;object-fit:cover;}
+
+.product-body{padding:var(--s4);}
+
+.product-cat{font-size:10.5px;color:var(--terracotta);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:4px;}
+
+.product-name{font-family:var(--f-display);font-weight:600;font-size:15.5px;margin-bottom:8px;line-height:1.3;}
+
+.product-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+
+.product-price{font-weight:700;font-size:15px;color:var(--ink);}
+
+.add-btn{width:36px;height:36px;border-radius:50%;background:var(--ink);color:var(--cream);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .18s;}
+
+.add-btn:hover{transform:scale(1.08);background:var(--terracotta);}
+
+.add-btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:2.5;}
+
+
+
+
+/* ============ QTY STEPPER ============ */
+.qty-stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line);border-radius:var(--r-full);overflow:hidden;background:var(--cream);}
+
+.qty-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:var(--ink);font-size:14px;transition:background .2s;}
+
+.qty-btn:hover{background:var(--cream-deep);}
+
+.qty-val{min-width:20px;text-align:center;font-size:12.5px;font-weight:600;}
+
+/* ============ OUT OF STOCK (Admin Dashboard / Inventory step) ============ */
+.product-card.out-of-stock .product-visual{opacity:.5;}
+
+.product-badge--oos{color:var(--danger);border-color:var(--danger);}
+
+.out-of-stock-label{font-size:12px;font-weight:600;color:var(--danger);white-space:nowrap;}

@@ -1,0 +1,101 @@
+/* Kitchen & Home By Noor — site chrome: header, logo, desktop nav links,
+   hamburger + its drawer, and the footer. Depends on tokens.css.
+   (Mobile bottom nav styles are added here too, see below.) */
+
+/* ============ HEADER ============ */
+.header{position:sticky;top:0;z-index:200;background:rgba(247,242,233,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);}
+
+.header-inner{display:flex;align-items:center;justify-content:space-between;height:72px;gap:16px;}
+
+.logo{font-family:var(--f-display);font-weight:700;font-size:22px;letter-spacing:.4px;cursor:pointer;line-height:1;display:flex;flex-direction:column;gap:3px;}
+
+.logo em{color:var(--terracotta);font-style:italic;font-weight:600;}
+
+.logo-brand{font-family:var(--f-display);font-weight:700;font-size:clamp(17px,4.2vw,23px);letter-spacing:.5px;background:linear-gradient(120deg,#8B6914,#D4AF37 45%,#8B6914);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+.logo-tag{font-family:var(--f-body);font-weight:600;font-size:9.5px;letter-spacing:2px;color:var(--terracotta);text-transform:uppercase;}
+
+.header-actions{display:flex;align-items:center;gap:12px;}
+
+.icon-btn{position:relative;width:42px;height:42px;border-radius:var(--r-full);background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;transition:border-color .2s;}
+
+.icon-btn:hover{border-color:var(--line-terracotta);}
+
+.icon-btn svg{width:19px;height:19px;stroke:var(--ink);}
+
+.badge-count{position:absolute;top:-5px;right:-5px;background:var(--terracotta);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;border:2px solid var(--cream);}
+
+/* ============ NAV LINKS (desktop) + HAMBURGER (mobile) ============ */
+.nav-links{display:none;align-items:center;gap:26px;}
+
+.nav-link{font-size:14px;font-weight:500;color:var(--ink-soft);cursor:pointer;transition:color .2s;padding:8px 0;position:relative;}
+
+.nav-link:hover{color:var(--ink);}
+
+.nav-link.active{color:var(--terracotta);font-weight:600;}
+
+.hamburger-btn{display:flex;}
+
+
+
+.mobile-nav-drawer{max-height:0;overflow:hidden;transition:max-height .3s ease;background:var(--card);border-bottom:1px solid var(--line);}
+
+.mobile-nav-drawer.open{max-height:380px;}
+
+.mobile-nav-link{display:block;width:100%;text-align:left;padding:15px 20px;font-family:var(--f-display);font-weight:600;font-size:16px;border-bottom:1px solid var(--line);}
+
+.mobile-nav-link:last-child{border-bottom:none;}
+
+.mobile-nav-link.active{color:var(--terracotta);}
+
+/* ============ FOOTER ============ */
+.footer{border-top:1px solid var(--line);padding:var(--s6) 0;margin-top:var(--s7);text-align:center;}
+
+.footer p{font-size:12.5px;color:var(--ink-faint);}
+
+.footer a{color:var(--terracotta);font-weight:500;}
+
+.footer-link-btn{color:var(--terracotta);font-size:13px;font-weight:500;}
+
+/* ============ MOBILE HEADER REDUCTION (Phase 1) ============
+   Desktop (≥860px) keeps all 4 icons exactly as before. Below that,
+   Search/Account/Cart are reached via the inline search bar and the
+   new bottom nav instead, so the header keeps just the logo, theme
+   toggle, and hamburger. */
+.icon-btn-desktop-only{display:none;}
+
+@media(min-width:860px){
+  .icon-btn-desktop-only{display:flex;}
+}
+
+/* While the mobile search overlay is open, hide the normal header row
+   so the search field reads as "expanded to the top" — desktop is
+   untouched since this rule only applies below the nav breakpoint. */
+@media(max-width:859px){
+  .header.search-mode .header-inner{display:none;}
+}
+
+/* ============ BOTTOM NAV (mobile only) ============ */
+.bottom-nav{position:fixed;left:0;right:0;bottom:0;z-index:250;display:flex;background:rgba(247,242,233,0.96);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom, 0);}
+
+html[data-theme="dark"] .bottom-nav{background:rgba(26,22,19,0.96);}
+
+.bottom-nav-link{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px 8px;font-size:11px;font-weight:600;color:var(--ink-faint);position:relative;}
+
+.bottom-nav-link svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;}
+
+.bottom-nav-link.active{color:var(--terracotta);}
+
+.bottom-nav-badge{position:absolute;top:2px;right:calc(50% - 20px);}
+
+@media(min-width:860px){
+  .bottom-nav{display:none;}
+}
+
+/* Room for the fixed bottom nav so the footer/last content isn't
+   hidden behind it — desktop has no bottom nav, so no padding needed. */
+body{padding-bottom:64px;}
+
+@media(min-width:860px){
+  body{padding-bottom:0;}
+}

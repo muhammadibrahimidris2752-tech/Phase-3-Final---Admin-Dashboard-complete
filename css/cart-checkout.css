@@ -1,0 +1,112 @@
+/* Kitchen & Home By Noor — cart + checkout: cart line items, order summary,
+   checkout form fields, WhatsApp note, empty state, and the checkout-panel
+   width constraint + place-order button. Depends on tokens.css, base.css
+   (.page-head), products.css (.qty-stepper is reused on this page). */
+
+/* ============ CART ============ */
+.cart-list{display:flex;flex-direction:column;gap:12px;margin-bottom:var(--s6);}
+
+.cart-item{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:12px;}
+
+.cart-item-visual{width:64px;height:64px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+
+.cart-item-visual svg{width:46%;height:46%;stroke:var(--ink);opacity:.55;}
+
+.cart-item-visual img{width:100%;height:100%;object-fit:cover;}
+
+.cart-item-info .product-name{font-size:14px;margin-bottom:2px;}
+
+.cart-item-info .product-cat{margin-bottom:6px;}
+
+.cart-item-price{font-weight:600;font-size:13.5px;color:var(--terracotta);}
+
+.cart-item-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+
+.remove-btn{color:var(--ink-faint);transition:color .2s;padding:2px;}
+
+.remove-btn:hover{color:var(--danger);}
+
+.remove-btn svg{width:16px;height:16px;stroke:currentColor;}
+
+.summary-box{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s5);margin-bottom:var(--s5);}
+
+.summary-row{display:flex;justify-content:space-between;align-items:center;font-size:14px;padding:8px 0;color:var(--ink-soft);}
+
+.summary-row.total{color:var(--ink);font-weight:700;font-size:19px;font-family:var(--f-display);}
+
+.summary-row span:last-child{font-weight:600;color:var(--ink);}
+
+.summary-row.total span:last-child{color:var(--terracotta);}
+
+
+.name-field{margin-bottom:var(--s5);}
+
+.name-field label{display:block;font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;font-weight:500;}
+
+.name-field input{width:100%;background:var(--card);border:1.5px solid var(--line);color:var(--ink);padding:13px 15px;border-radius:var(--r-sm);font-size:14.5px;transition:border-color .2s;}
+
+.name-field input:focus{border-color:var(--terracotta);outline:none;}
+
+
+.wa-note{display:flex;gap:10px;align-items:flex-start;background:var(--wa-soft);border:1px dashed rgba(37,211,102,0.35);border-radius:var(--r-md);padding:14px 16px;margin-top:var(--s4);font-size:13px;color:var(--ink-soft);line-height:1.6;}
+
+.wa-note svg{width:18px;height:18px;stroke:var(--wa-deep);flex-shrink:0;margin-top:1px;}
+
+
+.empty-state{text-align:center;padding:var(--s9) var(--s5);color:var(--ink-soft);}
+
+.empty-state .empty-icon{width:64px;height:64px;border-radius:50%;background:var(--terracotta-soft);border:1px solid var(--line-terracotta);display:flex;align-items:center;justify-content:center;margin:0 auto var(--s5);}
+
+.empty-state .empty-icon svg{width:28px;height:28px;stroke:var(--terracotta);}
+
+.empty-state h3{font-family:var(--f-display);color:var(--ink);font-size:19px;margin-bottom:8px;font-weight:600;}
+
+.empty-state p{font-size:14px;margin-bottom:var(--s5);}
+
+/* ============ FULFILMENT + PAYMENT METHOD (Phase 1 checkout step) ============
+   Sits above the name/phone/email/address fields on the cart page —
+   see fulfilmentSectionHTML() in js/checkout.js. Reuses .summary-box/
+   .summary-row above for the totals display. */
+.fulfilment-section{margin-bottom:var(--s5);}
+
+.fulfilment-label{font-size:12.5px;color:var(--ink-soft);margin-bottom:8px;font-weight:500;}
+
+.fulfilment-toggle{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+.fulfilment-option{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border-radius:var(--r-md);border:1.5px solid var(--line);background:var(--card);color:var(--ink-soft);font-size:13.5px;font-weight:600;transition:.2s;}
+
+.fulfilment-option svg{width:22px;height:22px;stroke:currentColor;}
+
+.fulfilment-option.active{border-color:var(--terracotta);color:var(--terracotta);background:var(--terracotta-soft);}
+
+.payment-method-list{display:flex;flex-direction:column;gap:8px;}
+
+.payment-method-option{display:flex;align-items:center;gap:12px;padding:12px 15px;border-radius:var(--r-sm);border:1.5px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;text-align:left;}
+
+.payment-method-radio{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line);flex-shrink:0;position:relative;}
+
+.payment-method-option.active{border-color:var(--terracotta);}
+
+.payment-method-option.active .payment-method-radio{border-color:var(--terracotta);border-width:5px;}
+
+/* ============ CHECKOUT PANEL (cart page summary/fields/button) ============
+   Constrains just this block to a premium checkout-card width on wider
+   screens instead of stretching the full container width; on mobile
+   (viewport narrower than this) it naturally stays full-width, same as
+   before. Scoped to this one block only — no other button or layout
+   on the site is affected. */
+.checkout-panel {
+    max-width: 360px;
+    margin: auto;
+}
+
+#placeOrderBtn {
+    display: flex;
+    justify-content: center;   /* Centers everything horizontally */
+    align-items: center;       /* Centers everything vertically */
+    gap: 8px;                  /* Space between the icon and text */
+    width: 220px;
+    height: 50px;
+    margin: 20px auto;
+    border-radius: 14px;
+}
