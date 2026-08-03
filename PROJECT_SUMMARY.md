@@ -693,6 +693,128 @@ graph directly (not inferred) to confirm none of them import
 `firebase-admin/auth` or `lambda/auth/` — verify-token.ts is the only
 file in the whole project that does.
 
+### Delivery zone data connection — Step 2.6 (verification and
+documentation; no `aws-backend/` code changed)
+
+**Goal for this step:** connect the Admin Dashboard's Delivery Zones
+system to the deployed AWS backend so `GET /health/{zoneId}` can
+retrieve real, admin-created delivery zones instead of only proving
+the pipeline works against an ID chosen to not exist.
+
+**Finding, before writing anything:** reviewing the four requested
+frontend files (`js/admin-delivery-zones.js`, `js/delivery-zones.js`,
+`js/firestore.js`, `js/dashboard.js`) against the existing AWS side
+(`lambda/health/handler.ts`, `lambda/delivery/get-delivery-zone.ts`,
+`lambda/admin.ts`, `lambda/config.ts`) shows Step 2.5 already built
+this connection — not a stub returning a fixed response.
+`getDeliveryZoneById()` reads
+`db.collection(DELIVERY_ZONES_COLLECTION).doc(zoneId).get()`
+(`DELIVERY_ZONES_COLLECTION` = `'deliveryZones'`) through the real
+Firebase Admin SDK connection Step 2.5 wired up — the same collection
+name and doc-ID-as-primary-key convention `js/firestore.js`'s
+`updateDeliveryZoneInFirestore()`/`deleteDeliveryZoneFromFirestore()`
+already use for the Admin Dashboard's real writes. There's no separate
+test path or hardcoded response anywhere between the API route and
+Firestore.
+
+**Why the previously-tested `test-zone` ID correctly returned
+`NOT_FOUND`:** zones created through the Admin Dashboard
+(`js/admin-delivery-zones.js` → `addDeliveryZoneToFirestore()` →
+Firestore's `addDoc()`, confirmed in `js/firestore.js`) get a
+Firestore-assigned document ID, not a human-typed one, so `test-zone`
+was never going to match a real document — that response is what
+correct code does with an ID that doesn't exist, not evidence of a
+stub. This matches what `aws-backend/README.md`'s own testing section
+already said before this step: use "a real delivery zone document ID
+from your Firestore" — either one of the three zones seeded with
+custom IDs during Phase 4 Step 1 (`sample-zone-within-city`,
+`sample-zone-same-state`, `sample-zone-other-states`), or the
+Firestore-generated ID of any zone added since via the Admin
+Dashboard. Both ID styles resolve identically through
+`.doc(zoneId).get()` — a Firestore document lookup doesn't care how
+an ID was chosen, only whether it matches.
+
+**What this step actually changed:** nothing under `aws-backend/`. Per
+this step's own instruction not to touch Step 2.5 unless required, and
+since the read path, error handling, collection name, and document-ID
+convention were already correct and already verified end-to-end on a
+real AWS account in Step 2.5, adding a second read path would only
+have duplicated existing logic and put an already-deployed, already-
+tested endpoint at risk for no functional gain. This step's actual
+contribution is the verification and documentation on this page —
+confirmed by code review, not by querying live Firestore data
+directly, which this environment has no credentials for.
+
+**Firestore document structure (unchanged from Phase 4 Step 1, verified
+by re-reading every write path rather than assumed):** collection
+`deliveryZones`; each document's ID is either a Firestore auto-ID
+(zones added via the Admin Dashboard) or one of the three original
+seeded IDs above; fields are `name` (string), `fee` (number, whole
+Naira), `description` (string, optional), `active` (boolean, missing
+treated as `true`), `sortOrder` (number, missing sorts last). Every
+zone the Admin Dashboard has added or edited also carries
+`createdAt`/`updatedAt` (numbers — `Date.now()`), since
+`handleDeliveryZoneFormSubmit()` writes both on every add and edit;
+whether the three original seeded zones carry those two fields depends
+on how they were created outside the Admin Dashboard, which a code
+review can't confirm either way — harmless either way, since nothing
+in the read path requires them.
+
+**How the Health endpoint resolves a zone:** `GET /health/{zoneId}` →
+`lambda/health/handler.ts` reads the `zoneId` path parameter → calls
+`getDeliveryZoneById(zoneId)` → `db.collection('deliveryZones')
+.doc(zoneId).get()` via the Firebase Admin SDK connection from
+`lambda/admin.ts` → `200 { id, name, fee, description, active,
+sortOrder, ... }` if the document exists, or (unchanged from Step 2.5)
+a `NotFoundError` → `404 { error: { code: 'NOT_FOUND', message } }` if
+it doesn't.
+
+**Deployment changes required: none.** The Step 2.5 stack
+(`lib/aws-backend-stack.ts`) already provisions the Lambda, the API
+Gateway route, and the Secrets Manager read grant this needs; nothing
+new needs to be created or redeployed. `cdk diff` against the
+already-deployed stack should show no changes from this step.
+
+**Verification actually performed, and its limits:** this environment
+has no network access, so `npm install`, `npm run lint`, and
+`cdk synth` (all of which need the registry to fetch `aws-cdk-lib`,
+`firebase-admin`, `@aws-sdk/client-secrets-manager`, ESLint, etc.)
+could not be run here — the same constraint Step 2.5's own writeup
+above already hit and worked around, not something new to this step.
+What was actually run: `tsc --noEmit` across every file in
+`aws-backend/lambda/`, `aws-backend/lib/`, and `aws-backend/bin/`,
+using a real TypeScript compiler (v6.0.3) and a staged `@types/node`.
+Result matched Step 2.5's own reported result exactly: the only errors
+are "cannot find module" for packages this sandbox can't install —
+nothing else, and nothing in the one file this step actually edited
+(`PROJECT_SUMMARY.md`, not code). Because no file under `aws-backend/`
+changed, there is nothing new for a real `npm install` / `build` /
+`lint` / `synth` / `deploy` to catch that Step 2.5's own verified run
+didn't already cover — that's a reasoned expectation given zero lines
+of Lambda/CDK code changed, not a claim of having actually run those
+commands here. Running them for real, against the live AWS account, is
+still yours to confirm, the same way Step 2.5's own results were
+confirmed on the reporter's machine rather than in this sandbox.
+
+**Regression check:**
+- AWS architecture, Lambda name (`kitchen-home-by-noor-health`), API
+  Gateway route (`GET /health/{zoneId}`), and Secrets Manager
+  configuration: unchanged — no file under `aws-backend/` was edited.
+- `firestore.rules`: unchanged, and not actually exercised by this
+  endpoint either way — the Firebase Admin SDK (what the Lambda uses)
+  reads Firestore with full backend privilege and doesn't evaluate
+  security rules at all. Those rules only govern the frontend's own
+  client-SDK reads/writes (already public-read for `deliveryZones`,
+  confirmed in `firestore.rules`), a separate, already-working path
+  this step didn't touch.
+- Frontend delivery zone UI (`js/admin-delivery-zones.js`,
+  `js/delivery-zones.js`, `js/firestore.js`, `js/dashboard.js`):
+  unchanged.
+- No authentication was introduced. Customer checkout, payment flow,
+  and order flow were not touched. Step 2.7 was not begun —
+  `lambda/orders/`, `lambda/payments/`, and `lambda/email/` remain the
+  same placeholder files Step 2.5 left them as.
+
 ## Security review
 
 Everything below was written or changed for this phase; the customer
