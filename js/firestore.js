@@ -534,3 +534,77 @@ export async function subscribeToLabels(callback){
     return () => {};
   }
 }
+
+/* ============================================================
+   Delivery Zones (Phase 4 Step 1 — Smart Delivery Engine, part of the
+   Secure Checkout & Paystack Integration phase). Same CRUD + live-
+   subscription shape as Category Management / Feature Labels above —
+   addDeliveryZoneToFirestore/updateDeliveryZoneInFirestore/
+   deleteDeliveryZoneFromFirestore/subscribeToDeliveryZones mirror
+   addCategoryToFirestore/updateCategoryInFirestore/
+   deleteCategoryFromFirestore/subscribeToCategories one-for-one. See
+   js/delivery-zones.js for the shared cache both the storefront
+   (later step) and the Admin Dashboard's Delivery Zones page read
+   from, and js/admin-delivery-zones.js for the page that calls the
+   functions below.
+   ============================================================ */
+
+export async function addDeliveryZoneToFirestore(zone){
+  if(!isFirebaseConfigured()) return null;
+  try {
+    const app = await getFirebaseApp();
+    const { getFirestore, collection, addDoc } = await loadFirebaseModule('firestore');
+    const docRef = await addDoc(collection(getFirestore(app), 'deliveryZones'), zone);
+    return docRef.id;
+  } catch(e){
+    console.error('Could not add delivery zone to Firestore:', e);
+    return null;
+  }
+}
+
+export async function updateDeliveryZoneInFirestore(id, changes){
+  if(!isFirebaseConfigured()) return null;
+  try {
+    const app = await getFirebaseApp();
+    const { getFirestore, doc, updateDoc } = await loadFirebaseModule('firestore');
+    await updateDoc(doc(getFirestore(app), 'deliveryZones', id), changes);
+    return true;
+  } catch(e){
+    console.error('Could not update delivery zone in Firestore:', e);
+    return false;
+  }
+}
+
+export async function deleteDeliveryZoneFromFirestore(id){
+  if(!isFirebaseConfigured()) return null;
+  try {
+    const app = await getFirebaseApp();
+    const { getFirestore, doc, deleteDoc } = await loadFirebaseModule('firestore');
+    await deleteDoc(doc(getFirestore(app), 'deliveryZones', id));
+    return true;
+  } catch(e){
+    console.error('Could not delete delivery zone in Firestore:', e);
+    return false;
+  }
+}
+
+/** Live version of loadDeliveryZones() in js/delivery-zones.js —
+    public-read (see firestore.rules), so this needs no uid. No
+    where()/orderBy() here on purpose, same reasoning as
+    subscribeToCategories() above. */
+export async function subscribeToDeliveryZones(callback){
+  if(!isFirebaseConfigured()) return () => {};
+  try {
+    const app = await getFirebaseApp();
+    const { getFirestore, collection, onSnapshot } = await loadFirebaseModule('firestore');
+    const db = getFirestore(app);
+    return onSnapshot(collection(db, 'deliveryZones'), snap => {
+      callback(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, err => {
+      console.error('Delivery zone subscription error:', err);
+    });
+  } catch(e){
+    console.error('Could not subscribe to Firestore delivery zones:', e);
+    return () => {};
+  }
+}

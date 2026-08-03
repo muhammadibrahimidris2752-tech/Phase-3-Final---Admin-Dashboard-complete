@@ -1,0 +1,18 @@
+# Compiled output (build from src/ with `npm run build`)
+lib/
+
+# Dependencies (install with `npm install`)
+node_modules/
+
+# Firebase CLI / emulator local files
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log
+.runtimeconfig.json
+
+# Local-only env files — secrets belong in Firebase Secret Manager,
+# never in a committed file (relevant once a later step adds
+# PAYSTACK_SECRET_KEY)
+*.local
+.env
+.env.*

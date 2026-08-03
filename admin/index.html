@@ -88,6 +88,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 12.6 12.9 20.3a2 2 0 0 1-2.8 0l-6.4-6.4a2 2 0 0 1 0-2.8L11.4 3.4A2 2 0 0 1 12.8 3H19a2 2 0 0 1 2 2v6.2a2 2 0 0 1-.4 1.4Z"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
         Labels
       </button>
+      <button class="admin-nav-link" data-page="delivery-zones">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h3l3 3v5h-6"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+        Delivery Zones
+      </button>
       <button class="admin-nav-link" data-page="orders">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
         Orders
@@ -259,6 +263,38 @@
           <div class="admin-table-empty" id="labelsEmptyState">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 12.6 12.9 20.3a2 2 0 0 1-2.8 0l-6.4-6.4a2 2 0 0 1 0-2.8L11.4 3.4A2 2 0 0 1 12.8 3H19a2 2 0 0 1 2 2v6.2a2 2 0 0 1-.4 1.4Z"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
             <p>No labels yet &mdash; add your first one above.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ DELIVERY ZONES PAGE (Phase 4 Step 1 — Smart Delivery Engine) ============ -->
+      <div class="admin-page" id="page-delivery-zones">
+        <div class="admin-page-head">
+          <h1>Delivery Zones</h1>
+          <p>Create, edit, and reorder delivery zones and their fees &mdash; checkout will use these once the secure Paystack flow is wired up in a later step.</p>
+        </div>
+        <div class="admin-toolbar">
+          <div class="admin-toolbar-left">
+            <div class="admin-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="deliveryZoneSearchInput" placeholder="Search delivery zones&hellip;">
+            </div>
+          </div>
+          <button class="admin-btn admin-btn-primary" id="addDeliveryZoneBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add Delivery Zone
+          </button>
+        </div>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Zone</th><th>Description</th><th>Delivery Fee</th><th>Status</th><th>Order</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="deliveryZonesTableBody"></tbody>
+          </table>
+          <div class="admin-table-empty" id="deliveryZonesEmptyState">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h3l3 3v5h-6"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+            <p>No delivery zones yet &mdash; add your first one above.</p>
           </div>
         </div>
       </div>
@@ -471,6 +507,45 @@
       <div class="admin-modal-actions">
         <button type="button" class="admin-btn admin-btn-outline" id="categoryFormCancel">Cancel</button>
         <button type="submit" class="admin-btn admin-btn-primary" id="categoryFormSubmit">Save Category</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ DELIVERY ZONE MODAL (Phase 4 Step 1 — Smart Delivery Engine) ============ -->
+<div class="admin-modal-backdrop" id="deliveryZoneModal" style="display:none;">
+  <div class="admin-modal">
+    <div class="admin-modal-head">
+      <h3 id="deliveryZoneModalTitle">Add Delivery Zone</h3>
+      <button class="admin-modal-close" id="deliveryZoneModalClose" aria-label="Close" type="button">&times;</button>
+    </div>
+    <form id="deliveryZoneForm" novalidate>
+      <input type="hidden" id="deliveryZoneFormId">
+      <div class="admin-form-field">
+        <label for="deliveryZoneFormName">Zone name</label>
+        <input type="text" id="deliveryZoneFormName" placeholder="e.g. Lagos Mainland" required>
+      </div>
+      <div class="admin-form-field">
+        <label for="deliveryZoneFormFee">Delivery fee (&#8358;)</label>
+        <input type="number" id="deliveryZoneFormFee" min="0" step="1" required>
+      </div>
+      <div class="admin-form-field">
+        <label for="deliveryZoneFormDescription">Description (optional)</label>
+        <textarea id="deliveryZoneFormDescription" rows="3" placeholder="e.g. areas covered, estimated delivery time&hellip;"></textarea>
+      </div>
+      <div class="admin-form-toggles">
+        <label class="admin-toggle-row">
+          <span>Active (available at checkout)</span>
+          <span class="admin-toggle-wrap">
+            <input type="checkbox" id="deliveryZoneFormActive" class="admin-toggle-checkbox">
+            <span class="admin-toggle-visual"></span>
+          </span>
+        </label>
+      </div>
+      <div class="admin-login-error" id="deliveryZoneFormError"></div>
+      <div class="admin-modal-actions">
+        <button type="button" class="admin-btn admin-btn-outline" id="deliveryZoneFormCancel">Cancel</button>
+        <button type="submit" class="admin-btn admin-btn-primary" id="deliveryZoneFormSubmit">Save Delivery Zone</button>
       </div>
     </form>
   </div>

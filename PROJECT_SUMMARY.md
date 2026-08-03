@@ -372,11 +372,345 @@ bug-fix pass, with its own risk of breaking Products (explicitly out
 of bounds for this round). Flagged here for a future phase rather than
 folded in silently.
 
+### Delivery Zones — Phase 4 Step 1 (Secure Checkout & Paystack
+Integration phase, in progress)
+
+Phase 4's objective is to move all pricing, delivery-fee calculation,
+payment verification, inventory deduction, and order creation behind
+Cloud Functions, replacing the client-authoritative model every prior
+phase has used. That's a large change touching the payment-critical
+path, so it's being built as its own sequence of small, independently
+verified steps rather than landed at once — this section covers Step 1
+only; later steps update this doc as they land, the same way Phase 3's
+steps did.
+
+**Step 1 — Delivery Zones (Admin Dashboard only).** A new
+`deliveryZones` Firestore collection (`name`, `fee`, `description`,
+`active`, `sortOrder`) plus a new Delivery Zones page in the Admin
+Dashboard: Add/Edit/Delete, Hide/Show, Reorder (Up/Down, swapping
+`sortOrder` with the adjacent row) — the exact same CRUD shape as
+Category Management (Phase 3), deliberately reused rather than
+reinvented (`js/delivery-zones.js` mirrors `js/categories.js` field-
+for-field; `js/admin-delivery-zones.js` mirrors
+`js/admin-categories.js`, with `fee` replacing `image`). Firestore-
+first with a sample-zone fallback (`SAMPLE_DELIVERY_ZONES` in
+`data/products.sample.js`), identical resilience rule to
+products/categories/labels.
+
+**This step changes nothing about checkout.** The storefront doesn't
+read the `deliveryZones` collection yet — `js/checkout.js` still
+computes delivery using the flat `DELIVERY_CHARGE` constant from
+`js/config.js`, exactly as before. `getActiveDeliveryZonesSorted()`
+(the checkout-facing view in `js/delivery-zones.js`) has no caller
+yet; it was written now so the data-layer module ships complete, the
+same way `js/categories.js` shipped both its admin- and storefront-
+facing exports together in one step. This means Step 1 carries zero
+regression risk to the live storefront — the only new surface is a
+new page in the Admin Dashboard, gated behind the same owner-role
+login every other admin page already requires. The owner can start
+entering real delivery zones immediately; checkout starts actually
+using them (and charging based on them) once the Cloud Functions
+pricing pipeline exists, in a later step.
+
+**Step 2 — Cloud Functions scaffolding.** A new `functions/` directory
+holds this project's first-ever backend code — TypeScript, Cloud
+Functions v2, Node.js 22, deployed separately from Hosting
+(`firebase.json`'s hosting block now ignores `functions/**` so it
+never gets served as a static file). No business logic yet; this step
+only proves the pipeline and establishes the structure later steps
+build on:
+
+- `src/admin.ts` — the one place `admin.initializeApp()` runs, so
+  every feature module shares a single Admin SDK instance instead of
+  each one initializing its own.
+- `src/config.ts` — `setGlobalOptions()` (region, `maxInstances`) —
+  shared across every function rather than repeated per function.
+  `REGION` was originally left at `'us-central1'` (Firestore's default
+  when never changed) pending confirmation; confirmed against the
+  project's actual Firestore database location and corrected to
+  **`'europe-west1'`**.
+- `src/utils/auth.ts` — `requireOwner()`/`requireStaff()`, a
+  byte-for-byte mirror of `js/auth.js`'s `isAdmin()`/`isWorker()`
+  (same `admins/{uid}` document, same `active` + `role` fields, same
+  three staff roles) so a Cloud Function's notion of "signed-in admin"
+  can never drift from what the frontend and `firestore.rules` already
+  enforce.
+- `src/payments/`, `src/orders/`, `src/delivery/`, `src/email/` —
+  empty placeholder modules, each with a comment describing what a
+  later step adds there (Paystack init/verify, order finalization,
+  server-side delivery-fee calculation, transactional email). Splitting
+  these now, before any of them have code, is what keeps
+  `src/index.ts` a pure re-export barrel as the backend grows, instead
+  of one file accumulating every function.
+- `src/health/index.ts` — `healthCheck`, the one real function this
+  step deploys: an owner-only callable that returns `{ ok: true,
+  timestamp }`, proving TypeScript builds, Functions v2 deploys, and
+  the Admin SDK can read `admins/{uid}` correctly — before anything
+  payment-related is built on top of it. Nothing on the frontend calls
+  it; it's meant to be checked via the emulator, `firebase
+  functions:shell`, or the console.
+- ESLint uses flat config (`eslint.config.mjs`, ESLint 9) rather than
+  the older `.eslintrc.js` + `eslint-config-google` combination
+  `firebase init functions` has historically scaffolded — that
+  combination has known compatibility problems under ESLint 9.
+
+**Dependency fix, found on first real `npm install`:** the initial cut
+of `functions/package.json` included `firebase-functions-test` as a
+devDependency, speculatively, for tests that don't exist yet — no file
+in this codebase imports it. Its peer-dependency range on
+`firebase-admin` hadn't caught up to admin v14 at the time
+(`firebase-functions-test@^3.4.0` peers on `firebase-admin@^8 || ...
+|| ^13`), which broke `npm install` outright with an ERESOLVE
+conflict. Removed entirely rather than forced/pinned down, since
+nothing depends on it yet — add it back (at whatever version is
+current then) in whichever future step first writes actual Cloud
+Functions unit tests. `firebase-functions` was also bumped from
+`^7.2.5` to `^7.3.0`, matching the pairing Firebase's own docs
+currently list as compatible with `firebase-admin ^14.2.0`.
+
+**Lint fix, found on first real `npm run lint`:** the flat config was
+originally `eslint.config.js` written with CommonJS `require()` calls.
+`typescript-eslint`'s recommended rules include
+`@typescript-eslint/no-require-imports`, and with nothing scoping the
+ruleset away from the config file itself, `eslint .` flagged the
+config's own `require()` calls. Fixed by renaming the file to
+`eslint.config.mjs` and rewriting it with real `import` syntax
+(removing the `require()` calls the rule was correctly flagging,
+rather than suppressing the rule), and adding the config file itself
+to `ignores` — the same reasoning `lib/**`/`node_modules/**` are
+already excluded for: it's build tooling, not application source under
+`src/`. The `.mjs` extension makes Node load this one file as ESM
+regardless of `package.json` not declaring `"type": "module"` — the
+rest of the project is unaffected and stays CommonJS.
+
+**Region fix, confirmed after `npm install`/`build`/`lint` all passed
+locally:** `src/config.ts`'s `REGION` was corrected from the
+unconfirmed `'us-central1'` default to `'europe-west1'`, matching this
+project's actual Firestore database location (confirmed directly, not
+assumed).
+
+**Locally verified (Aug 2026):** `npm install`, `npm run build`, and
+`npm run lint` all pass cleanly in `functions/` — this step is fully
+confirmed working, not just checked for syntax from this environment.
+
+### Parallel AWS proof-of-concept — Step 2.5 (architecture validation,
+not a decision to migrate)
+
+A second, standalone backend now exists at `/aws-backend/` — AWS
+Lambda + API Gateway, evaluating whether AWS could replace
+`functions/` as the Phase 4 trusted backend, motivated by Nigerian
+card/billing friction with upgrading this project's Firebase plan to
+Blaze. **`functions/` was not touched, is not deprecated, and remains
+the active backend** — this is a proof-of-concept sitting alongside it,
+not a migration. Full detail (architecture, one-time setup, deployment
+commands) lives in `aws-backend/README.md`, kept there rather than
+duplicated here since it's a self-contained sub-project with its own
+build/deploy lifecycle. If this proves out and a decision is made to
+actually migrate, that migration gets its own step(s) here, same as
+everything else in this phase.
+
+**`tsconfig.json` fix, found on first real `npm run build`:** the
+initial `aws-backend/tsconfig.json` used `"moduleResolution":
+"bundler"` (chosen to sidestep a *different*, unrelated TypeScript 6.0
+deprecation warning around the classic `"node10"` resolution strategy
+seen while testing locally). That combination doesn't compile at all —
+TypeScript enforces that `"bundler"` resolution can only pair with
+`"module": "preserve"` or `"es2015"` or later, never `"commonjs"`,
+which this project needs (`ts-node` runs `bin/aws-backend.ts` via
+plain CommonJS `require()` at `cdk synth`/`deploy` time, since no ESM
+loader is configured). Conflating "avoid a resolution strategy that's
+soft-deprecated for a future TypeScript release" with "use `bundler`
+mode" was the actual mistake — those are unrelated axes, and the fix
+needed to stay on the `commonjs`-compatible side.
+
+**Root cause:** `"moduleResolution": "bundler"` requires an ES-module-era
+`module` target; it is not a valid pairing with `"module": "commonjs"`
+under any TypeScript version, not something version-specific.
+
+**Final configuration:** `"module": "nodenext"` /
+`"moduleResolution": "nodenext"` — TypeScript's current, actively
+maintained Node.js resolution strategy (tracks real Node.js module
+behavior, not the classic algorithm being phased out, and not tied to
+an old Node 16 snapshot the way the equivalent `"node16"` naming
+implies — this project targets Node.js 22). Since this project's
+`package.json` has no `"type": "module"`, every `.ts` file is still
+treated as CommonJS under `nodenext` — identical actual emitted output
+to the original `"module": "commonjs"` setting, just resolved via the
+current strategy instead of the one already flagged for removal.
+Confirmed to have no effect on the deployed Lambda either way: esbuild
+(via `NodejsFunction`) bundles `lambda/health/handler.ts` using its own
+independent resolution, configured entirely through the CDK stack's
+`bundling` options, not through this `tsconfig.json` — `tsc` here is a
+local type-checking gate only.
+
+**Verified before repackaging:** ran `tsc --noEmit` against the fixed
+config with a real (if newer-than-pinned — 6.0.3 here vs. `^5.7.2`
+pinned in `package.json`) TypeScript compiler staged locally, alongside
+a staged `@types/node` — output was exclusively the expected "cannot
+find module" errors for packages not installed in this environment (no
+network access here), nothing config-related. `eslint.config.mjs` is
+unaffected by this change and still checks clean.
+
+**Docker fallback fix, found on first real `npx cdk synth`:**
+`NodejsFunction` silently attempted to bundle inside a Docker container
+and failed with `spawnSync docker ENOENT`, since Docker isn't installed
+in the target Chromebook Linux environment.
+
+**Root cause:** `esbuild` was never declared as an installable
+dependency anywhere in `aws-backend/package.json`. Per `aws-cdk-lib`'s
+own `aws-lambda-nodejs` documentation: *"If esbuild is available it
+will be used to bundle your code in your environment. Otherwise,
+bundling will happen in a Lambda compatible Docker container."*
+`NodejsFunction` looks for `esbuild` resolvable from the project (via
+`node_modules`) to decide which path to take — since it was never
+listed, `npm install` never installed it, so at synth time nothing
+local was found and CDK fell through to the Docker path, which then
+failed outright rather than falling back further (Docker is the last
+resort, not a second-choice-with-its-own-fallback).
+
+**Final configuration:**
+- `esbuild` added to `aws-backend/package.json`'s `devDependencies`
+  (`^0.28.1`) — a build-time tool, not a Lambda runtime dependency
+  (nothing in `lambda/` imports it), so `devDependencies` is the
+  correct, idiomatic placement, matching how every published
+  NodejsFunction + esbuild guide sets this up. The `^0.28.1` range is
+  intentionally narrow: esbuild is still pre-1.0 and its own release
+  notes explicitly warn that 0.x versions can contain
+  backwards-incompatible changes at any point — npm's semver rules
+  already restrict a caret range on a 0.x version to patch-level
+  updates only (`>=0.28.1 <0.29.0`), which is exactly what esbuild's
+  own docs recommend instead of pinning an exact version.
+- `lib/aws-backend-stack.ts`'s `bundling` options now set
+  `forceDockerBundling: false` explicitly — this was already the
+  default, so behavior doesn't change, but it makes "local esbuild
+  first, Docker never required" an explicit, documented choice in code
+  rather than an implicit default a future reader wouldn't see.
+- Docker remains fully optional: nothing was removed or disabled, it
+  simply stops being needed once esbuild is actually installed
+  locally, which is the fix.
+
+**Lint cleanup, found on first fully clean `npm run lint`:** one
+warning remained in `lambda/auth/verify-token.ts` — an unused `_err`
+binding on a `catch` clause that only ever throws a fixed
+`UnauthorizedError` regardless of what was caught. The underscore
+prefix didn't silence it because `@typescript-eslint/no-unused-vars`
+treats caught-error bindings as a separate category
+(`caughtErrors`/`caughtErrorsIgnorePattern`) from function parameters
+(`argsIgnorePattern`, already configured in `eslint.config.mjs` for
+exactly this kind of case) — the two options don't share a pattern, so
+configuring one doesn't cover the other. Rather than add a second
+ignore pattern to the ESLint config, the actual code was fixed: the
+binding was removed entirely using optional catch binding (`catch {
+...}`, no parameter — valid since ES2019, well within this project's
+`ES2022` target), since the caught error was never read in the first
+place. This is the same fix the rule was correctly asking for, applied
+at the source rather than configured around.
+
+**Confirmed clean (Aug 2026), on the reporter's machine:** `npm
+install`, `npm run build`, `npm run lint`, and `npx cdk synth` all pass
+with zero errors and zero warnings.
+
+**Runtime failure, found after the first real `cdk deploy`:** the
+deployed `/health/{zoneId}` endpoint returned `{"message":"Internal
+Server Error"}`. CloudWatch showed the actual failure happened at
+Lambda cold start, before the handler ran:
+
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module
+/var/task/node_modules/jose/dist/webapi/index.js from
+/var/task/node_modules/jwks-rsa/src/utils.js not supported.
+```
+
+**Root cause, traced precisely:** `firebase-admin` genuinely depends on
+`jwks-rsa` (confirmed directly against npmjs.com's own dependency
+listing for the package) — used internally by `firebase-admin/auth`
+for verifying tokens from external OIDC/SAML providers (Identity
+Platform federation), a feature this project doesn't use anywhere.
+`jwks-rsa`, in the version currently resolved through
+`firebase-admin`'s dependency tree, itself requires `jose` — and `jose`
+dropped CommonJS support entirely starting at v6 (confirmed against a
+currently-open, actively-discussed upstream compatibility issue
+between the two packages — `auth0/node-jwks-rsa#493` — this is a real,
+unresolved ecosystem incompatibility, not something introduced by this
+project's own code).
+
+The actual reason this reached `/health` specifically:
+`lambda/admin.ts` unconditionally imported `firebase-admin/auth` and
+called `getAuth(app)` inside `getFirebaseAdmin()` — the one function
+*every* handler calls, including `/health`, which never authenticates
+anyone. That unconditional import was the sole reason the broken
+`jwks-rsa` → `jose` chain ended up inside `/health`'s bundle at all;
+`nodeModules: ['firebase-admin']` (already in the CDK stack, for the
+unrelated `@grpc/grpc-js` bundling issue documented in Step 2.5's
+original writeup above) causes esbuild to install `firebase-admin`'s
+full dependency tree as real files regardless, but a file sitting
+unused in `node_modules` is inert — Node only evaluates a module when
+something actually `require()`s it. The crash came from that active
+`require()` chain, not from the files merely existing in the bundle.
+
+**Is `jwks-rsa` actually required for Step 2.5?** No.
+`/health` is unauthenticated by design (see the original Step 2.5
+writeup) and never calls anything under `firebase-admin/auth`. The
+dependency was only ever reachable because of `admin.ts`'s
+over-broad initialization, not because `/health` itself needs it.
+
+**Fix — scoped to the actual problem, not a workaround:**
+`lambda/admin.ts` no longer imports `firebase-admin/auth` or calls
+`getAuth()` at all; `getFirebaseAdmin()`'s returned handle is now
+`{ app, db }` only (Firestore-focused, matching what every handler in
+this step actually uses). `lambda/auth/verify-token.ts` — the
+prepared-but-not-yet-wired auth helpers required by the original Step
+2.5 brief — now imports `firebase-admin/auth` and calls `getAuth(app)`
+itself, using the shared `app` from `admin.ts` (the Admin SDK caches
+`Auth` per `app` internally, so no extra memoization was needed here).
+Since `lambda/health/handler.ts` never imports anything under
+`lambda/auth/` (confirmed by grepping the actual import statements
+across every file reachable from the handler, not just believed),
+esbuild's tree-shaking means that broken `require()` chain simply never
+enters `/health`'s bundle. Nothing was deleted, disabled, or
+downgraded — `requireOwner()`/`requireStaff()`/`verifyIdToken()` still
+exist, still work identically, and are still ready for whichever future
+endpoint needs them; they just now carry their own dependency cost
+instead of being forced onto every handler in the project.
+
+**This is not permanently solved — it's correctly scoped out of Step
+2.5.** The `jwks-rsa`/`jose` incompatibility is a genuine, currently
+open upstream issue. The moment a future step actually imports
+`lambda/auth/` from a real endpoint, that endpoint's own bundle will
+hit the identical crash unless the underlying incompatibility is
+resolved by then (upstream fix, or an npm `overrides` pin to a `jose`
+version confirmed to still support CommonJS and compatible with
+whatever `firebase-admin` version is current at that time). Flagged
+here and in `aws-backend/README.md` so this is a known, expected next
+hurdle rather than a surprise.
+
+**Verified before repackaging:** `tsc --noEmit` against the fixed code
+with a real TypeScript compiler and staged `@types/node` — output was
+exclusively the expected "cannot find module" errors for packages not
+installed in this environment, nothing new introduced by the change.
+Grepped every file reachable from `lambda/health/handler.ts`'s import
+graph directly (not inferred) to confirm none of them import
+`firebase-admin/auth` or `lambda/auth/` — verify-token.ts is the only
+file in the whole project that does.
+
 ## Security review
 
 Everything below was written or changed for this phase; the customer
 sync systems from Phase 2 (`users/{uid}`, `carts/{uid}`, `orders/{orderId}`'s
 existing rules) were **not** touched.
+
+- **Phase 4 Step 1 — `deliveryZones/{zoneId}`, one new rule block,
+  identical in shape to `categories/{categoryId}` and
+  `labels/{labelId}`:** public read, owner-role-only write, no
+  customer-writable carve-out. **Everything else in this file is
+  unchanged in this step** — `orders/{orderId}`'s `allow create: if
+  true` and `products/{productId}`'s customer-writable stock-decrement
+  carve-out (see below) are both still exactly as Phase 3 left them.
+  Closing those is the actual point of Phase 4 and is deliberately
+  **not done yet** — both depend on Cloud Functions existing first
+  (an order can only stop being client-creatable once something else
+  creates it), which is a later step. Flagged here so this isn't
+  mistaken for done partway through the phase.
 
 - **`firestore.rules` — one narrow addition to `products/{productId}`,
   plus two new collections (this update).** The `products/{productId}`
@@ -443,8 +777,12 @@ existing rules) were **not** touched.
 
 ## Intentionally postponed
 
-- **Payments.** Paystack hasn't started — zero references anywhere in
-  the codebase (verified by search, not assumed).
+- **Payments.** Underway as Phase 4 (Secure Checkout & Paystack
+  Integration) — see the Delivery Zones subsection above for what's
+  landed so far (Step 1 of a multi-step plan). The store still has no
+  Cloud Functions, no Paystack API calls, and no change to how an
+  order gets created — everything security-critical about this phase
+  is still ahead, not behind.
 - **Image upload to Firebase Storage.** The admin product form takes
   an image URL directly. The original `uploadProductImage()` stub
   (which would have needed Storage, not just Firestore) was removed

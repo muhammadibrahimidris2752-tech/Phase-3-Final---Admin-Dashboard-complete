@@ -32,6 +32,17 @@ export const SAMPLE_LABELS = [
   { id: 'sample-bestseller', name: 'Best Seller', enabled: true },
   { id: 'sample-limited', name: 'Limited Edition', enabled: true }
 ];
+/* Phase 4 Step 1 (Smart Delivery Engine) — same fallback role as
+   SAMPLE_CATEGORIES/SAMPLE_LABELS above: only used when Firestore's
+   "deliveryZones" collection is unconfigured, unreachable, or empty.
+   Generic tiered names on purpose (not specific cities) since this is
+   demo-mode-only content the owner replaces via the Admin Dashboard's
+   Delivery Zones page — see js/delivery-zones.js. */
+export const SAMPLE_DELIVERY_ZONES = [
+  { id: 'sample-zone-within-city', name: 'Within City', fee: 1500, description: '', active: true, sortOrder: 0 },
+  { id: 'sample-zone-same-state', name: 'Same State', fee: 2500, description: '', active: true, sortOrder: 1 },
+  { id: 'sample-zone-other-states', name: 'Other States', fee: 4000, description: '', active: true, sortOrder: 2 }
+];
 /** Generic fallback icon shown in a product's visual area when it has
     no image URL set — a single neutral package/box glyph used for
     every category now, since category-name-keyed icons (the old

@@ -1,0 +1,18 @@
+# Compiled output (from `npm run build`) — not consumed by CDK synth
+# (which runs TypeScript directly via ts-node) or by the Lambda bundle
+# (which esbuild builds directly from the .ts source); this is a
+# type-checking artifact only.
+dist/
+
+# Dependencies (install with `npm install`)
+node_modules/
+
+# CDK's synthesized CloudFormation output
+cdk.out/
+
+# Local-only env files — nothing in this project should ever need one
+# (the Firebase service account lives in AWS Secrets Manager, not a
+# local file), but excluded on principle same as functions/.gitignore
+.env
+.env.*
+*.local

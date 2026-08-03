@@ -1,0 +1,36 @@
+{
+  "name": "aws-backend",
+  "description": "AWS Lambda + API Gateway proof-of-concept for Kitchen & Home By Noor \u2014 Phase 4 Step 2.5. Parallel to functions/, not a replacement for it.",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "lint": "eslint .",
+    "synth": "cdk synth",
+    "diff": "cdk diff",
+    "deploy": "cdk deploy",
+    "destroy": "cdk destroy",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1095.0",
+    "aws-cdk-lib": "^2.262.2",
+    "constructs": "^10.0.0",
+    "firebase-admin": "^14.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@types/aws-lambda": "^8.10.0",
+    "@types/node": "^22.10.0",
+    "aws-cdk": "^2.1134.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.15.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0"
+  }
+}

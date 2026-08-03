@@ -75,6 +75,24 @@ service cloud.firestore {
                    && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
     }
 
+    // Live since Phase 4 Step 1 (Smart Delivery Engine — Delivery Zones
+    // page) — the Admin Dashboard's Delivery Zones page
+    // (js/admin-delivery-zones.js) is the only place a zone is created,
+    // edited, hidden, reordered, or deleted. Nothing reads this
+    // collection from the storefront yet — checkout starts using it in
+    // a later Phase 4 step, once the Cloud Functions pricing pipeline
+    // that will actually charge for it exists. Same public-read /
+    // owner-role-write shape as categories/{categoryId} and
+    // labels/{labelId} above, and no customer-writable carve-out —
+    // nothing about a delivery zone is ever written by a signed-in
+    // customer.
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.active == true
+                   && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'owner';
+    }
+
     // Live since the Firestore permissions fix (Phase 2) — every signed-in
     // user reads only their own admin/staff record (js/firestore.js's
     // getAdminRecord(), read on every sign-in via js/auth.js, and by

@@ -16,6 +16,11 @@
                                Add/Edit/Delete/Enable-Disable, and the
                                per-label "which products use this"
                                assignment view (Feature Labels step)
+     - js/admin-delivery-zones.js  Delivery Zones page: table, search,
+                               reorder, Add/Edit/Delete/Hide-Show
+                               (Phase 4 Step 1 — Smart Delivery Engine;
+                               management only so far, not yet read by
+                               checkout)
      - js/admin-orders.js     Orders page: live feed, search, filter,
                                detail view, status updates
      - js/admin-customers.js  Customers page: table, derived from orders
@@ -45,6 +50,7 @@ import { getDashboardStats, showAdminToast } from './admin.js';
 import { loadProducts, subscribeToProductUpdates } from './products.js';
 import { loadCategories, subscribeToCategoryUpdates } from './categories.js';
 import { loadLabels, subscribeToLabelUpdates } from './labels.js';
+import { loadDeliveryZones, subscribeToDeliveryZoneUpdates } from './delivery-zones.js';
 import { renderProductsTable, initProductsPage, openEditProductModal, handleDeleteProduct } from './admin-products.js';
 import {
   renderCategoriesTable, initCategoriesPage, openEditCategoryModal,
@@ -55,6 +61,10 @@ import {
   handleToggleLabelEnabled, openLabelProductsModal, handleLabelProductToggle,
   refreshLabelProductsModalIfOpen
 } from './admin-labels.js';
+import {
+  renderDeliveryZonesTable, initDeliveryZonesPage, openEditDeliveryZoneModal,
+  handleDeleteDeliveryZone, handleToggleDeliveryZoneActive, handleMoveDeliveryZone
+} from './admin-delivery-zones.js';
 import { renderOrdersTable, initOrdersPage, startAdminOrdersSync, stopAdminOrdersSync, getAllOrders, viewOrderDetail, handleOrderStatusChange } from './admin-orders.js';
 import { renderCustomersTable } from './admin-customers.js';
 import { renderAnalyticsPage } from './admin-analytics.js';
@@ -129,11 +139,13 @@ function wireLoginForm(){
 let unsubscribeProducts = null;
 let unsubscribeCategories = null;
 let unsubscribeLabels = null;
+let unsubscribeDeliveryZones = null;
 async function handleLogout(){
   stopAdminOrdersSync();
   if(unsubscribeProducts){ unsubscribeProducts(); unsubscribeProducts = null; }
   if(unsubscribeCategories){ unsubscribeCategories(); unsubscribeCategories = null; }
   if(unsubscribeLabels){ unsubscribeLabels(); unsubscribeLabels = null; }
+  if(unsubscribeDeliveryZones){ unsubscribeDeliveryZones(); unsubscribeDeliveryZones = null; }
   try {
     await logout();
   } catch(err){
@@ -145,8 +157,8 @@ async function handleLogout(){
 /* ============ SIDEBAR NAVIGATION ============ */
 const PAGE_TITLES = {
   dashboard: 'Dashboard', products: 'Products', categories: 'Categories',
-  labels: 'Labels', orders: 'Orders', customers: 'Customers',
-  analytics: 'Analytics', settings: 'Settings'
+  labels: 'Labels', 'delivery-zones': 'Delivery Zones', orders: 'Orders',
+  customers: 'Customers', analytics: 'Analytics', settings: 'Settings'
 };
 function showPage(page){
   document.querySelectorAll('.admin-page').forEach(p => p.classList.remove('active'));
@@ -262,6 +274,9 @@ async function startLiveAdminData(){
     renderProductsTable();
     refreshLabelProductsModalIfOpen();
   });
+  unsubscribeDeliveryZones = await subscribeToDeliveryZoneUpdates(() => {
+    renderDeliveryZonesTable();
+  });
   await startAdminOrdersSync(() => {
     renderOrdersTable();
     renderCustomersTable();
@@ -285,13 +300,18 @@ async function init(){
   initProductsPage();
   initCategoriesPage();
   initLabelsPage();
+  initDeliveryZonesPage();
   initOrdersPage();
 
   // First paint, same as the storefront (js/app.js) — subscriptions
   // (above) take over after. Categories/labels load alongside products
   // rather than after, since the Products page's table and form both
   // resolve/list category and label names as soon as it renders.
-  await Promise.all([loadProducts(), loadCategories(), loadLabels()]);
+  // Delivery zones load alongside them too (Phase 4 Step 1) — no other
+  // page depends on zones yet, but loading it here keeps every admin
+  // data source populated before the first render, the same rule the
+  // other three already follow.
+  await Promise.all([loadProducts(), loadCategories(), loadLabels(), loadDeliveryZones()]);
 
   showGate('loading');
   onAuthStateChangedListener(async (user) => {
@@ -310,6 +330,7 @@ async function init(){
     renderProductsTable();
     renderCategoriesTable();
     renderLabelsTable();
+    renderDeliveryZonesTable();
     await startLiveAdminData();
     showGate('dashboard');
   });
@@ -322,6 +343,7 @@ async function init(){
     openEditProductModal, handleDeleteProduct,
     openEditCategoryModal, handleDeleteCategory, handleToggleCategoryActive, handleMoveCategory,
     openEditLabelModal, handleDeleteLabel, handleToggleLabelEnabled, openLabelProductsModal, handleLabelProductToggle,
+    openEditDeliveryZoneModal, handleDeleteDeliveryZone, handleToggleDeliveryZoneActive, handleMoveDeliveryZone,
     viewOrderDetail, handleOrderStatusChange
   });
 }
