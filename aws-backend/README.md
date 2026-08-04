@@ -1,4 +1,4 @@
-# aws-backend — Phase 4 Step 2.5 (AWS proof-of-concept)
+# aws-backend — Phase 4 Steps 2.5–2.7 (AWS proof-of-concept)
 
 This is a **parallel, standalone backend**, built to validate whether
 AWS Lambda + API Gateway can replace `functions/` (the Firebase Cloud
@@ -164,20 +164,45 @@ crashed the Lambda at cold start, before the handler ever ran
 (`ERR_REQUIRE_ESM`) — see `PROJECT_SUMMARY.md` for the full
 investigation.
 
-The fix: `firebase-admin/auth` is only imported inside
-`lambda/auth/verify-token.ts` now, which obtains its own `Auth`
-instance from the shared `app` (`getAuth(app)`, cached internally by
-the Admin SDK — no extra caching needed here). Since `/health`'s
-handler never imports anything under `lambda/auth/`, esbuild's
-tree-shaking means that broken dependency chain never enters its
-bundle at all. **Whichever future step first wires `requireOwner()`/
-`requireStaff()` into a real endpoint will hit this exact same crash in
-that endpoint's own bundle** unless it's resolved first — most likely
-via an npm `overrides` pin to a `jose` version that still supports
-CommonJS, once one is confirmed compatible with whatever
-`firebase-admin` version is current at that time. Don't assume this is
-permanently solved; it's correctly scoped out of Step 2.5, not fixed
-for good.
+Step 2.5's fix: `firebase-admin/auth` is only imported inside
+`lambda/auth/verify-token.ts`, which obtains its own `Auth` instance
+from the shared `app` (`getAuth(app)`, cached internally by the Admin
+SDK — no extra caching needed here). Since `/health`'s handler never
+imports anything under `lambda/auth/`, esbuild's tree-shaking means
+that broken dependency chain never enters its bundle at all. That was
+always a way of *avoiding* the crash for one endpoint, not a fix for
+it — Step 2.5 and Step 2.6 both flagged that whichever future step
+first wired `requireOwner()`/`requireStaff()` into a real endpoint
+would hit the identical crash in that endpoint's own bundle.
+
+**Step 2.7 resolved the underlying incompatibility** — see
+`PROJECT_SUMMARY.md`'s Step 2.7 section for the full investigation,
+including two false starts worth reading before touching this again.
+Short version: `jose` 5.x is the last major with CommonJS support, and
+still exports everything `jwks-rsa`'s code calls, so it's a safe pin —
+but *where* the pin lives matters. It can't live in this project's own
+`package.json` (tried, reverted — it breaks `HealthFunction`'s own
+`cdk synth` via `npm ci`, since `NodejsFunction`'s `nodeModules`
+install step writes its own minimal `package.json` that doesn't carry
+the project's `overrides` field, but *does* copy the real,
+now-inconsistent lockfile alongside it). It lives instead in
+`lib/auth-lambda-bundling.ts`, as a `commandHooks.afterBundling` hook
+scoped to only the specific function that needs it — see that file's
+header comment for the full mechanism. Any future `NodejsFunction`
+whose entry imports `lambda/auth`, directly or transitively, needs
+`commandHooks: authLambdaCommandHooks` added to its `bundling` config,
+alongside the same `nodeModules: ['firebase-admin']` options
+`HealthFunction` already uses. `HealthFunction` itself doesn't need
+it and doesn't have it — it still never imports `firebase-admin/auth`.
+
+Before wiring a real endpoint's `bundling` config by hand, run
+`./scripts/verify-auth-bundle.sh path/to/your/entry.ts` first — it
+bundles your entry through a real, throwaway `cdk synth` (not an
+approximation of one) and confirms it loads without the
+`ERR_REQUIRE_ESM` crash before you spend a deploy cycle finding out.
+It doesn't call Firestore or AWS, so a clean pass here still isn't the
+same as a confirmed real deploy — see the verification limits in
+`PROJECT_SUMMARY.md`'s Step 2.7 section.
 
 ## Project structure
 
@@ -186,8 +211,17 @@ aws-backend/
   bin/aws-backend.ts        CDK app entry point
   lib/aws-backend-stack.ts   CDK stack: Lambda, HTTP API, IAM (via grantRead),
                              Secrets Manager reference, CloudWatch Log Group
+  lib/auth-lambda-bundling.ts Step 2.7 — commandHooks fix for the jose/
+                             jwks-rsa crash. Not used by HealthFunction;
+                             for any future NodejsFunction importing
+                             lambda/auth. Full rationale in its header.
+  scripts/verify-auth-bundle.sh  Step 2.7 — bundles a given entry point
+                             through a real, throwaway cdk synth and
+                             checks it loads without the ERR_REQUIRE_ESM
+                             crash. Run before wiring a real auth-gated
+                             endpoint's bundling config by hand.
   lambda/
-    config.ts                 Centralized configuration \u2014 single source
+    config.ts                 Centralized configuration — single source
                                of truth for both the Lambda code and the
                                CDK stack (which imports the same constants)
     admin.ts                   Firebase Admin SDK singleton, cached across
@@ -195,14 +229,14 @@ aws-backend/
     shared/                    Cross-cutting helpers: structured logging,
                                centralized error types, centralized HTTP
                                response shaping
-    auth/                       Firebase ID token verification \u2014
+    auth/                       Firebase ID token verification —
                                requireOwner()/requireStaff(), mirroring
                                functions/src/utils/auth.ts exactly. Ready
                                for future endpoints; not used by /health
-    delivery/                   getDeliveryZoneById() \u2014 the Firestore read
+    delivery/                   getDeliveryZoneById() — the Firestore read
                                /health is built on, kept reusable for real
                                delivery-fee-calculation logic later
-    payments/, orders/, email/   Empty placeholders \u2014 where the
+    payments/, orders/, email/   Empty placeholders — where the
                                corresponding functions/src/ modules would
                                migrate to, if this proof-of-concept is
                                confirmed and that decision is made

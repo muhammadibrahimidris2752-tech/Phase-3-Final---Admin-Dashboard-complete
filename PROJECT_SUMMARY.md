@@ -815,6 +815,237 @@ confirmed on the reporter's machine rather than in this sandbox.
   `lambda/orders/`, `lambda/payments/`, and `lambda/email/` remain the
   same placeholder files Step 2.5 left them as.
 
+### Resolving the jose/jwks-rsa incompatibility — Step 2.7 (AWS
+proof-of-concept track; no payments/orders/email touched, primary
+`functions/` roadmap not begun)
+
+**Goal for this step:** resolve the `firebase-admin/auth` →
+`jwks-rsa` → `jose` `ERR_REQUIRE_ESM` incompatibility flagged as an
+open hurdle at the end of Step 2.5 and reconfirmed, untouched, at the
+end of Step 2.6 — so that a future endpoint can actually import
+`lambda/auth` (`requireOwner()`/`requireStaff()`) without crashing at
+Lambda cold start. Explicitly not in scope, per this step's own
+instructions and confirmed against `lambda/payments/index.ts`,
+`lambda/orders/index.ts`, and `lambda/email/index.ts`'s own "do not
+implement until instructed" comments: any actual payments, orders, or
+email logic, in either `aws-backend/` or `functions/`. Also not in
+scope: `functions/src/delivery` (Step 3 of the primary roadmap) — this
+step stayed entirely inside the `aws-backend/` proof-of-concept track.
+
+**This environment's network access, corrected from prior steps:**
+Steps 2.5 and 2.6 both stated this sandbox has no network access and
+verified only with a staged, offline TypeScript compiler. That's no
+longer accurate for this session — `registry.npmjs.org`, `npmjs.com`,
+and `github.com` are reachable here. Noting this explicitly because it
+changes what "verified" means below: this step ran real `npm install`,
+real `npm ci` (the actual command `aws-cdk-lib` uses, see below), and
+a real `cdk synth`, against the real npm registry — not `tsc --noEmit`
+with a staged compiler. What's still out of reach is unchanged: a real
+AWS account (`cdk deploy`, Secrets Manager, IAM) and live Firestore
+data. Whether this level of access persists in future sessions isn't
+something this step can promise — worth re-checking rather than
+assuming either way next time.
+
+**Root cause, confirmed empirically, not just read from Step 2.5's
+account of it:** `firebase-admin@14.2.0` depends on `"jwks-rsa":
+"^4.0.1"` (confirmed via the npm registry), which resolves to
+`jwks-rsa@4.1.0` — every published 4.x release, checked individually,
+depends on `"jose": "^6.1.3"`. `jose@6.x`'s `package.json` `exports`
+field has only `"default"`/`"import"` conditions, no `"require"` —
+confirmed directly from the registry, not inferred. `jwks-rsa`'s own
+`JwksClient.js` requires `./utils.js` at module top level, which does
+`const jose = require('jose')` at *its* top level — and
+`firebase-admin`'s own `lib/auth/token-verifier.js` requires
+`../utils/jwt.js` (which requires `jwks-rsa`) at module top level too.
+So the crash isn't conditional on which `firebase-admin/auth` function
+gets called, or on OIDC/SAML federation actually being used (it isn't,
+anywhere in this project) — it fires the moment `firebase-admin/auth`
+is *imported*, full stop, which is exactly what
+`lambda/auth/verify-token.ts` does.
+
+One correction to Step 2.5's working assumption: a plain `node -e
+"require('jwks-rsa')"` on this sandbox's Node (v22.22.2) does **not**
+crash. Node 22.12+ ships synchronous `require(esm)` interop by
+default, and `jose`'s ESM build has no top-level `await`, so Node
+quietly loads it anyway. That's almost certainly *why* this sandbox
+couldn't reproduce the crash Step 2.5 hit on a real deployed Lambda —
+not because the incompatibility wasn't real, but because this
+sandbox's local Node is newer than whatever AWS Lambda's managed
+`nodejs22.x` runtime was running. Confirmed by forcing the older,
+stricter behavior with `node --no-experimental-require-module`: the
+exact documented error reproduces character-for-character:
+```
+Error [ERR_REQUIRE_ESM]: require() of ES Module
+.../node_modules/jose/dist/webapi/index.js from
+.../node_modules/jwks-rsa/src/utils.js not supported.
+```
+That flag became this step's reproduction method for everything below
+— a reasoned stand-in for "whatever makes Lambda's runtime stricter
+than this sandbox's Node," not a guarantee of being identical to it.
+Confirming the exact Node patch AWS Lambda's `nodejs22.x` runtime uses
+needs AWS's own documentation, which isn't in this sandbox's allowed
+domains — still open, and worth keeping in mind if a real deploy ever
+behaves differently than this local testing predicts.
+
+**The fix — `jose@^5.10.0`, checked for API compatibility, not just
+CJS support:** `jose` 5.x is the last major with a `"require"` export
+condition (confirmed against the registry). Before pinning to it, this
+step also confirmed `jose@5.10.0` still exports every function
+`jwks-rsa@4.1.0`'s code actually calls — `importJWK`, `exportSPKI` —
+so the pin isn't just "stops crashing at import time," it would also
+behave correctly if that code path (JWKS fetching for external OIDC/
+SAML tokens) were ever genuinely exercised, which today it isn't.
+
+**Two false starts on the way to a fix that actually reaches a
+deployed bundle — kept here because both were plausible enough to
+otherwise ship by mistake:**
+
+1. *Hand-rolling the esbuild bundle instead of driving CDK's real
+   code.* This step's first attempt manually ran `esbuild` with flags
+   copied from `lib/aws-backend-stack.ts`, then manually replicated
+   the `nodeModules` install step with a hand-written
+   `package.json` + `npm install`. It reported success. It was wrong:
+   `aws-cdk-lib`'s actual `PackageManager.fromLockFile()` (read
+   directly from the installed package, not assumed) always uses
+   `npm ci` for npm projects, never `npm install` — and `npm ci`'s
+   strict lockfile-consistency check behaves nothing like `npm
+   install`'s lenient re-resolution. The hand-rolled version's false
+   pass would have shipped a fix that looked verified but wasn't.
+   Lesson applied to everything downstream: verify through a real
+   `cdk synth`, not a reimplementation of what CDK does.
+
+2. *Putting the override in `aws-backend/package.json`.* The obvious
+   first fix — add `"overrides": { "jose": "^5.10.0" }` to
+   `package.json`, regenerate `package-lock.json` — builds, lints,
+   and looks correct. It also **breaks `HealthFunction`'s own bundle**
+   the next time `cdk synth` runs, with `npm ci` refusing to proceed:
+   `NodejsFunction`'s `nodeModules` step writes its *own* minimal
+   synthetic `package.json` (just `{ "dependencies": { "firebase-
+   admin": "<version>" } }`, confirmed by reading `extractDependencies`
+   in `aws-cdk-lib` directly — it does not carry the project's
+   `overrides` field across) into the bundle output directory, but
+   *does* copy the real, now-override-tainted `package-lock.json`
+   alongside it — and `npm ci` correctly rejects that pair as
+   inconsistent. This would have been a real regression shipped in
+   the name of fixing an unrelated function that doesn't even import
+   `firebase-admin/auth`. Caught only by actually running `cdk synth`
+   on the unmodified stack after making the change — a plain `tsc`/
+   `eslint` pass, or a hand-rolled bundle check, would have missed it
+   entirely. `aws-backend/package.json` and `package-lock.json` are
+   untouched by this step as a direct result — confirmed with a
+   byte-for-byte diff against the pre-Step-2.7 versions.
+
+   A related dead end worth recording so it isn't retried: a plain
+   `npm install jose@5.10.0` (no `overrides`) *does* update the
+   top-level `node_modules/jose`, but npm leaves a **second, nested
+   copy** — `node_modules/jwks-rsa/node_modules/jose`, still on 6.x —
+   to satisfy `jwks-rsa`'s own declared range. Node's module
+   resolution finds that nested copy first, so the crash persists.
+   Only routing the fix through npm's own `overrides` mechanism (via
+   `npm pkg set`, see below) makes npm rewrite the resolution
+   tree-wide with no shadow copy left behind.
+
+**Where the real fix lives, and why there, specifically:**
+`aws-backend/lib/auth-lambda-bundling.ts` (new file) exports
+`authLambdaCommandHooks`, a CDK `commandHooks.afterBundling` hook.
+`afterBundling` runs *after* `NodejsFunction`'s own `nodeModules`
+install (the `npm ci` step) already completed — so it starts from
+whatever `firebase-admin`'s tree naturally resolves to (`jose@6.x`,
+broken) and runs `npm pkg set overrides.jose="^5.10.0" && npm
+install` *inside that specific function's own bundle output
+directory*. This is the one place a fix can apply to exactly the
+function that needs it, without touching the shared project-level
+`package.json`/`package-lock.json` that every `nodeModules`-bundled
+function's `npm ci` step depends on being self-consistent.
+`HealthFunction` doesn't use this hook and doesn't need to —
+`admin.ts` still never imports `firebase-admin/auth`, so `jwks-rsa`/
+`jose` still never get `require()`d in its bundle, override or not
+(confirmed: `jose@6.x` sits physically in `HealthFunction`'s
+`node_modules` too, since `firebase-admin`'s full dependency tree
+installs regardless of which subpath is imported — it's just never
+loaded, so it's inert).
+
+**Usage for whichever future step adds the first real endpoint that
+needs auth:** spread `commandHooks: authLambdaCommandHooks` into that
+function's `bundling` options, alongside the same `nodeModules:
+['firebase-admin']` / `forceDockerBundling: false` / `target: 'node22'`
+options `HealthFunction` already uses. Full rationale, the two false
+starts above, and exact usage are documented as an extensive header
+comment directly in `lib/auth-lambda-bundling.ts` — written to still
+make sense read in isolation, not only alongside this file.
+
+**Verification actually performed — this time against the real
+registry, not a staged compiler:**
+- `npm view` against the real registry confirmed: `firebase-admin@14.2.0`'s
+  actual dependency range on `jwks-rsa`; that every published
+  `jwks-rsa` 4.x version depends on `jose@^6.1.3`; `jose@6.x`'s
+  `exports` field lacking a `require` condition; `jose@5.10.0` having
+  one; and `jose@5.10.0` exporting `importJWK`/`exportSPKI`.
+- The original crash was reproduced locally and exactly, using `node
+  --no-experimental-require-module` against a real esbuild bundle of
+  an entry point importing `lambda/auth`, built with the same flags
+  `lib/aws-backend-stack.ts` uses.
+- The fix was verified through the **real** `aws-cdk-lib` bundling
+  code, not a hand-rolled approximation (see false start #1 above): a
+  temporary, unrouted `NodejsFunction` using `authLambdaCommandHooks`
+  was added to a throwaway copy of the real stack, `cdk synth` was run
+  for real, and the actual CloudFormation-referenced asset (matched by
+  its S3 asset key, not assumed) was loaded under
+  `--no-experimental-require-module` — loaded cleanly, handler
+  executed, `requireOwner`/`requireStaff` both resolved as functions.
+  The temporary function was removed afterward; it was never part of
+  the delivered stack.
+- Negative control: the same test, with the fix's version pin
+  deliberately changed to `^6.0.0`, reproduces the exact
+  `ERR_REQUIRE_ESM` crash again — confirming the test genuinely
+  discriminates pass from fail rather than always reporting success.
+- Regression check on `HealthFunction`: `npm run build`, `npm run
+  lint`, and `npm run synth` all pass against the **unmodified**
+  stack; `lib/aws-backend-stack.ts`, `bin/aws-backend.ts`,
+  `package.json`, and `package-lock.json` are byte-for-byte identical
+  to their pre-Step-2.7 versions (`diff`-checked, not eyeballed).
+- `aws-backend/scripts/verify-auth-bundle.sh` (new file) packages the
+  real-`cdk synth`-based verification above into a reusable script —
+  written this way specifically because false start #1 showed a
+  hand-rolled bundling check can pass when the real pipeline wouldn't.
+  Takes an entry-file path, defaults to `lambda/auth/index.ts`; never
+  modifies the real project (works in a disposable temp copy).
+- **Not verified, and can't be from here:** an actual `cdk deploy` to
+  a real AWS account, on the real `nodejs22.x` Lambda runtime. Local
+  testing forced a stand-in for "stricter than this sandbox" via
+  `--no-experimental-require-module`; that's a reasoned proxy for
+  Lambda's actual behavior, not a substitute for confirming it on the
+  real runtime. Recommended before relying on this in production: wire
+  one real (even trivial) authenticated endpoint using
+  `authLambdaCommandHooks`, `cdk deploy` it, and confirm cold start
+  succeeds in CloudWatch Logs — the same way Step 2.5's original crash
+  was first discovered.
+
+**What changed, in full — two new files, nothing else:**
+`aws-backend/lib/auth-lambda-bundling.ts` and
+`aws-backend/scripts/verify-auth-bundle.sh`. No existing file under
+`aws-backend/` was modified.
+
+**Regression check:**
+- `lib/aws-backend-stack.ts`, `bin/aws-backend.ts`, `cdk.json`,
+  `tsconfig.json`, `eslint.config.mjs`, `package.json`,
+  `package-lock.json`: all unchanged, diff-confirmed against the
+  pre-Step-2.7 versions.
+- `HealthFunction` / `GET /health/{zoneId}`: unchanged, and reconfirmed
+  via a real (not staged) `cdk synth` this time.
+- `lambda/payments/`, `lambda/orders/`, `lambda/email/` (both
+  `aws-backend/` and `functions/`): still untouched placeholders — this
+  step never opened any of the six files.
+- `functions/` (the primary backend): completely untouched. Step 3
+  (server-side delivery-fee calculation) has not begun.
+- Frontend: completely untouched — this step never touched `js/`,
+  `css/`, `index.html`, or `admin/index.html`.
+- `firestore.rules`, `firestore.indexes.json`, `firebase.json`:
+  unchanged.
+- No new endpoint was deployed or wired to any API Gateway route. The
+  temporary function used for verification was removed before this
+  step was considered done.
+
 ## Security review
 
 Everything below was written or changed for this phase; the customer
