@@ -1046,6 +1046,140 @@ registry, not a staged compiler:**
   temporary function used for verification was removed before this
   step was considered done.
 
+### Proving the auth fix on live AWS — Step 2.8 (AWS proof-of-concept
+track; still no payments/orders/email, primary `functions/` roadmap
+still not begun)
+
+**Goal for this step:** Step 2.7 fixed the jose/jwks-rsa incompatibility
+and verified it locally — bundle loads cleanly under a Node flag
+standing in for a stricter runtime. What it explicitly could not do
+from this sandbox is confirm that on the real, deployed
+`nodejs22.x` Lambda runtime. Step 2.8 closes that gap the only way
+that's actually conclusive: give `authLambdaCommandHooks` a real
+consumer, so a real `cdk deploy` exercises it for real.
+
+**A process note, in the interest of the same honesty this whole log
+tries to keep:** the instruction kicking off this step reported Step
+2.7 as fully verified including a successful `cdk deploy`. That's
+plausible on its own, but worth flagging precisely: at the end of Step
+2.7, `authLambdaCommandHooks` existed but nothing in the stack used
+it — `HealthFunction` never imports `lambda/auth`, by design. A
+`cdk deploy` of that stack as it stood would have redeployed
+`HealthFunction` unchanged and confirmed nothing new about the auth
+fix specifically. Not a correction of what was reported — just a
+reason this step's own goal (an actual live-AWS confirmation of the
+fix) still stood regardless, and why it's written up in just as much
+detail as if that deploy hadn't happened.
+
+**What this step built:** one new file,
+`lambda/health/auth-check-handler.ts` — `GET /health/auth-check`,
+wired into a new, second `NodejsFunction` (`AuthCheckFunction`) in
+`lib/aws-backend-stack.ts`. Calls `requireOwner(event)` and returns
+`{ ok: true, uid }` on success, nothing else — no business data, no
+writes. Deliberately as small as the original `/health/{zoneId}`
+handler was in Step 2.5: a 200 here is only supposed to mean one
+thing, cleanly.
+
+**Why a second file and a second function, not a second export added
+to `health/handler.ts`:** `NodejsFunction` bundles an entry file's
+whole module graph, not just whichever export Lambda's `handler`
+setting happens to name at runtime. Adding `authCheckHandler` as a
+second export inside `health/handler.ts` — sharing that file's
+existing `entry: .../health/handler.ts` — would have pulled
+`lambda/auth` (and therefore `jwks-rsa`/`jose`) into `/health/{zoneId}`'s
+own bundle too, the exact outcome keeping that import isolated in
+`lambda/auth/verify-token.ts` was always meant to prevent (see Step
+2.5's writeup, and that file's own header comment). Two files, two
+functions keeps that isolation real rather than nominal. Confirmed,
+not assumed: `HealthFunction`'s synthesized asset hash
+(`523b521c1ac6d9eeeba17d464da3ba95bc297727adfd0cf8bfebb07ff5c5a002.zip`)
+is byte-for-byte identical before and after this step — checked by
+synthesizing the exact Step 2.7 commit in isolation and comparing
+content-addressed hashes, not by eyeballing the bundle. Adding
+`AuthCheckFunction` had zero effect on `/health/{zoneId}`'s actual
+deployment package.
+
+**Verification actually performed:**
+- `npm install`, `npm run build`, `npm run lint`, `npm run synth`: all
+  pass. `synth` this time is the real thing, not a temporary/throwaway
+  addition — `AuthCheckFunction` is a permanent part of the stack, and
+  its `commandHooks: authLambdaCommandHooks` bundling step ran for
+  real as part of an ordinary synth.
+- The real, permanent, `cdk-synth`-produced asset for
+  `AuthCheckFunction` (matched to its logical ID via the synthesized
+  template, not assumed) was loaded under
+  `node --no-experimental-require-module` — loaded cleanly. Confirmed
+  it's genuinely the auth-check bundle via string literals unaffected
+  by minification (`"Owner auth check succeeded"`,
+  `"requires owner access"`, `"admins"`) after `grep`-ing for
+  `requireOwner` by name came back empty — a red herring from esbuild
+  minifying that local identifier, not a sign of the wrong bundle.
+- The handler's error path was exercised directly (no AWS/Firebase
+  credentials needed — the missing-header check in `verifyIdToken()`
+  throws before any network call): calling `handler({ headers: {} })`
+  returns a clean `401 UNAUTHORIZED` with the expected body shape, and
+  the structured logger correctly emits a warning — no crash, no
+  unhandled rejection.
+- `HealthFunction`'s asset hash: byte-identical before/after, per
+  above — the regression check this step cared most about.
+- `aws-backend/scripts/verify-auth-bundle.sh` was also run directly
+  against the new handler file: pass.
+- **Not verified, and can't be from here:** an actual `cdk deploy` to
+  a real AWS account, a real Firebase ID token from a real signed-in
+  owner account reaching `verifyIdToken()`, the real `admins/{uid}`
+  Firestore lookup succeeding end-to-end, CloudWatch Logs showing a
+  clean cold start on the real `nodejs22.x` runtime, and — worth
+  calling out specifically — that API Gateway's documented behavior of
+  literal path segments (`/health/auth-check`) taking precedence over
+  parameterized ones (`/health/{zoneId}`) actually holds for this
+  exact route pair once deployed. All of this needs the real deploy
+  and a real request; nothing in this sandbox can confirm it.
+
+**How to test this for real, once deployed:** `GET
+{ApiUrl}/health/auth-check` with an `Authorization: Bearer <Firebase ID
+token>` header, from an account that already has a Firestore
+`admins/{uid}` document with `active: true` and `role: 'owner'` — the
+same bar the Admin Dashboard itself already requires, so any account
+that can already sign into it today should already qualify. From the
+browser console while signed into the Admin Dashboard as that owner
+(picking up the already-initialized app via the same CDN URL the page
+itself loads, per `js/firebase.js`'s `FIREBASE_SDK_VERSION`):
+```js
+const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
+const token = await getAuth().currentUser.getIdToken();
+copy(token); // Chrome DevTools — copies it to the clipboard
+```
+then:
+```
+curl -H "Authorization: Bearer <token>" {ApiUrl}/health/auth-check
+```
+Expect `200 {"ok":true,"uid":"<the account's uid>"}`. A 401 most likely
+means an expired/stale token (they're short-lived — get a fresh one);
+a 403 means the account is authenticated but isn't an active owner in
+`admins/{uid}`. Either way, reaching a clean JSON response at all —
+not a Lambda platform error / 502 — is the actual confirmation this
+step exists to get: the bundle survived cold start on the real
+runtime.
+
+**Regression check:**
+- `lambda/health/handler.ts`, `/health/{zoneId}`: unchanged, confirmed
+  via byte-identical content-addressed asset hash, not just an
+  unchanged source file.
+- `lambda/auth/`, `lib/auth-lambda-bundling.ts`,
+  `scripts/verify-auth-bundle.sh`: unchanged — this step is the first
+  real *consumer* of Step 2.7's fix, not a change to it.
+- `lambda/payments/`, `lambda/orders/`, `lambda/email/` (both
+  `aws-backend/` and `functions/`): still untouched placeholders.
+- `functions/` (the primary backend): completely untouched. Step 3 has
+  not begun.
+- Frontend, `firestore.rules`, `firestore.indexes.json`,
+  `firebase.json`: completely untouched.
+- `package.json`, `package-lock.json`: untouched, same as Step 2.7 —
+  no reason to touch them this time either.
+- Full diff against the Step 2.7 commit: exactly
+  `lib/aws-backend-stack.ts` (modified — additions only) and
+  `lambda/health/auth-check-handler.ts` (new). Nothing else.
+
 ## Security review
 
 Everything below was written or changed for this phase; the customer

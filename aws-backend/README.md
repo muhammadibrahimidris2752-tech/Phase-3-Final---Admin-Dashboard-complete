@@ -1,4 +1,4 @@
-# aws-backend — Phase 4 Steps 2.5–2.7 (AWS proof-of-concept)
+# aws-backend — Phase 4 Steps 2.5–2.8 (AWS proof-of-concept)
 
 This is a **parallel, standalone backend**, built to validate whether
 AWS Lambda + API Gateway can replace `functions/` (the Firebase Cloud
@@ -7,12 +7,17 @@ on, or replace anything in `functions/`, the frontend, or Firebase
 Hosting — both backends currently exist side by side, and `functions/`
 remains the one actually wired to anything.
 
-**Scope of this step, deliberately minimal:** one endpoint,
-`GET /health/{zoneId}`, which reads one document from Firestore's
-existing `deliveryZones` collection and returns it as JSON. Nothing
-about checkout, Paystack, orders, or emails is implemented here yet —
-see `lambda/payments/`, `lambda/orders/`, `lambda/email/` for
-placeholders describing what would move here in later steps, *if* this
+**Scope, deliberately minimal:** two endpoints. `GET /health/{zoneId}`
+(Step 2.5) reads one document from Firestore's existing
+`deliveryZones` collection and returns it as JSON. `GET
+/health/auth-check` (Step 2.8) verifies a real Firebase ID token via
+`requireOwner()` and returns `{ ok: true, uid }` — nothing about the
+business it's protecting, just proof the auth path itself works,
+including on the real Lambda runtime (see Step 2.7/2.8 in
+`PROJECT_SUMMARY.md` for why that needed its own step). Nothing about
+checkout, Paystack, orders, or emails is implemented here yet — see
+`lambda/payments/`, `lambda/orders/`, `lambda/email/` for placeholders
+describing what would move here in later steps, *if* this
 proof-of-concept is confirmed working and a decision is made to
 proceed.
 
@@ -24,7 +29,16 @@ API Gateway (HTTP API)  --->  Lambda (Node.js 22, TypeScript)  --->  Firestore
                                     from AWS Secrets Manager,               Admin SDK)
                                     initializes Firebase Admin SDK
                                     once per warm execution
+
+      GET /health/auth-check  ---> same Secrets Manager / Admin SDK  ---> Firestore
+                                    setup, in a SEPARATE Lambda            (admins/{uid},
+                                    (AuthCheckFunction) — verifies the     via Admin SDK)
+                                    caller's Firebase ID token first
 ```
+
+Two separate Lambda functions, not one handling both routes — see
+"`lambda/auth/` is deliberately isolated" below for why that separation
+is load-bearing, not just tidiness.
 
 Everything is provisioned by CDK (`lib/aws-backend-stack.ts`) **except
 one thing**: the Secrets Manager secret's actual *value*. Creating the
@@ -123,6 +137,46 @@ Expected responses:
 - **404** — `{ "error": { "code": "NOT_FOUND", "message": "..." } }` for an id that doesn't exist
 - **400** — if you hit `/health/` with no id at all
 
+### Testing `/health/auth-check` (Step 2.8)
+
+Needs a real Firebase ID token from an account with an
+`admins/{uid}` Firestore document where `active: true` and
+`role: 'owner'` — the same bar the Admin Dashboard itself already
+requires, so any account that can sign into it today already
+qualifies. Easiest way to get one: from the browser console while
+signed into the Admin Dashboard, reusing the exact CDN URL the page
+itself already loads (`js/firebase.js`'s `FIREBASE_SDK_VERSION`) so
+this picks up the already-initialized app rather than starting a new,
+signed-out one:
+
+```js
+const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js');
+const token = await getAuth().currentUser.getIdToken();
+copy(token); // Chrome DevTools — copies it to the clipboard
+```
+
+Then:
+
+```bash
+curl -H "Authorization: Bearer <token>" https://<ApiUrl>/health/auth-check
+```
+
+Expected responses:
+- **200** — `{ "ok": true, "uid": "..." }`
+- **401** — missing/malformed header, or an expired token (they're
+  short-lived — get a fresh one and retry)
+- **403** — a valid token, but that account isn't an active owner in
+  `admins/{uid}`
+
+Any clean JSON response here — even a 401 or 403 — is the real
+confirmation this endpoint exists to get: it means the Lambda's bundle
+survived cold start on the real runtime with `firebase-admin/auth`
+actually imported, which is what Step 2.7's fix was for. A 502 or a
+generic Lambda platform error, instead of JSON, would mean the fix
+didn't hold on the real runtime the way local testing predicted — see
+`PROJECT_SUMMARY.md`'s Step 2.8 section for exactly what was and
+wasn't verified locally.
+
 ## Local testing without deploying
 
 CDK doesn't include a built-in local Lambda invoker the way the
@@ -131,12 +185,12 @@ Firebase emulator does for `functions/`. Two practical options:
 - **`cdk synth`** — confirms the stack synthesizes correctly (catches
   most CDK-level mistakes) without touching AWS at all.
 - **Deploy once, then iterate against the real thing** — for a
-  single-endpoint proof-of-concept, this is usually faster than
+  two-endpoint proof-of-concept, this is usually faster than
   standing up a local Lambda Runtime Interface Emulator. If you'd
   rather test locally before every deploy as this grows, look at
   [AWS SAM Local](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/using-sam-cli-local.html)
   or the Lambda Runtime Interface Emulator directly — neither is set
-  up in this proof-of-concept, since it's genuinely one endpoint.
+  up in this proof-of-concept, since it's genuinely still small.
 
 ## Why one `package.json` for both CDK and Lambda code
 
@@ -201,8 +255,25 @@ bundles your entry through a real, throwaway `cdk synth` (not an
 approximation of one) and confirms it loads without the
 `ERR_REQUIRE_ESM` crash before you spend a deploy cycle finding out.
 It doesn't call Firestore or AWS, so a clean pass here still isn't the
-same as a confirmed real deploy — see the verification limits in
-`PROJECT_SUMMARY.md`'s Step 2.7 section.
+same as a confirmed real deploy.
+
+**Step 2.8 gave the fix its first real consumer** —
+`lambda/health/auth-check-handler.ts`, wired as a second, separate
+`NodejsFunction` (`AuthCheckFunction`) with `commandHooks:
+authLambdaCommandHooks` in its `bundling` config, per the usage note
+above. `/health/{zoneId}`'s own `HealthFunction` is untouched by this
+— still doesn't import `lambda/auth`, still doesn't need the fix, and
+its synthesized bundle is byte-for-byte identical to before Step 2.8
+(confirmed by comparing content-addressed asset hashes, not just
+reading the unchanged source). The isolation this heading refers to
+is specifically about `/health/{zoneId}`'s bundle, not about
+`lambda/auth/` being unused — it's a working, exercised module now,
+just still walled off from the one endpoint that never needed it. See
+`PROJECT_SUMMARY.md`'s Step 2.8 section for what running the real,
+permanent (not throwaway) `AuthCheckFunction` bundle under
+`node --no-experimental-require-module` confirmed, and — just as
+importantly — exactly what's still unconfirmed until a real
+`cdk deploy` happens against a real AWS account.
 
 ## Project structure
 
@@ -212,14 +283,16 @@ aws-backend/
   lib/aws-backend-stack.ts   CDK stack: Lambda, HTTP API, IAM (via grantRead),
                              Secrets Manager reference, CloudWatch Log Group
   lib/auth-lambda-bundling.ts Step 2.7 — commandHooks fix for the jose/
-                             jwks-rsa crash. Not used by HealthFunction;
-                             for any future NodejsFunction importing
-                             lambda/auth. Full rationale in its header.
+                             jwks-rsa crash. Used by AuthCheckFunction
+                             (Step 2.8); not used by HealthFunction,
+                             which doesn't need it. Full rationale in
+                             its header.
   scripts/verify-auth-bundle.sh  Step 2.7 — bundles a given entry point
                              through a real, throwaway cdk synth and
                              checks it loads without the ERR_REQUIRE_ESM
-                             crash. Run before wiring a real auth-gated
-                             endpoint's bundling config by hand.
+                             crash. Used during Step 2.8's own
+                             development; run it again before wiring
+                             any future auth-gated endpoint by hand.
   lambda/
     config.ts                 Centralized configuration — single source
                                of truth for both the Lambda code and the
@@ -231,8 +304,9 @@ aws-backend/
                                response shaping
     auth/                       Firebase ID token verification —
                                requireOwner()/requireStaff(), mirroring
-                               functions/src/utils/auth.ts exactly. Ready
-                               for future endpoints; not used by /health
+                               functions/src/utils/auth.ts exactly. Used
+                               by health/auth-check-handler.ts (Step 2.8);
+                               still not used by health/handler.ts
     delivery/                   getDeliveryZoneById() — the Firestore read
                                /health is built on, kept reusable for real
                                delivery-fee-calculation logic later
@@ -240,7 +314,16 @@ aws-backend/
                                corresponding functions/src/ modules would
                                migrate to, if this proof-of-concept is
                                confirmed and that decision is made
-    health/handler.ts            The one real Lambda handler this step ships
+    health/
+      handler.ts                  GET /health/{zoneId} — Step 2.5's proof
+                               the Firestore pipeline works. Never imports
+                               lambda/auth; HealthFunction's bundling has
+                               no commandHooks fix and doesn't need one
+      auth-check-handler.ts       GET /health/auth-check — Step 2.8's
+                               proof the Step 2.7 fix works on a real,
+                               deployed Lambda. Separate file/function
+                               from handler.ts on purpose — see "lambda/
+                               auth/ is deliberately isolated" above
 ```
 
 ## Relationship to `functions/`
@@ -248,13 +331,13 @@ aws-backend/
 Nothing here modifies, depends on, or was generated from `functions/`.
 The two are intentionally parallel:
 
-| | `functions/` (Phase 4 Steps 1\u20132) | `aws-backend/` (this step) |
+| | `functions/` (Phase 4 Steps 1–2) | `aws-backend/` (this step) |
 |---|---|---|
 | Compute | Firebase Cloud Functions v2 | AWS Lambda |
 | Entry point | `onCall`/`onRequest`, auth context automatic | API Gateway event, auth verified explicitly |
 | Firebase Admin SDK credentials | Automatic (Application Default Credentials) | Explicit service account key, from Secrets Manager |
 | Secrets | Firebase Secret Manager (`defineSecret`) | AWS Secrets Manager |
-| Status | Deployed, `healthCheck` verified working | Proof-of-concept, not yet deployed |
+| Status | Deployed, `healthCheck` verified working | Two endpoints, both synth- and bundle-verified locally; a real `cdk deploy` and live request against each are the one thing that still needs confirming on a real AWS account — see `PROJECT_SUMMARY.md`'s Step 2.5–2.8 entries for exactly what's been confirmed where |
 
 If this proof-of-concept is confirmed working, later steps migrate
 `functions/src/payments`, `orders`, `delivery`, `email` here
